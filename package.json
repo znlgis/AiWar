@@ -1,0 +1,15 @@
+{
+  "name": "aiwar",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "pnpm --filter @aiwar/site dev",
+    "build": "pnpm --filter @aiwar/site build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "toy:check": "node scripts/check-toy.mjs",
+    "toy:zip": "python scripts/zip-dist.py",
+    "preview:toy": "node scripts/preview-toy-subpath.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm toy:zip && pnpm toy:check"
+  }
+}

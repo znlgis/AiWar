@@ -1,0 +1,64 @@
+:root {
+  --paper: #f5f4ef;
+  --paper-2: #ecebe4;
+  --ink: #1d1f21;
+  --ink-2: #4a4f55;
+  --ink-3: #7b8188;
+  --line: #d8d7cf;
+  --line-2: #c3c2b8;
+  --seal: #a83a2c;
+  --qi: #2f6f8f;
+  --wei: #8a3b3b;
+  --zhao: #7a6a3a;
+  --song: #6a5a8a;
+  --wei-state: #8a6a4a;
+  --chu: #3a7a5a;
+  --qin: #555a66;
+  --radius: 10px;
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --serif: "Songti SC", "SimSun", "Noto Serif CJK SC", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
+}
+button { font-family: inherit; cursor: pointer; }
+.app-shell { height: 100%; }
+h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: 0.02em; }
+.serif { font-family: var(--serif); }
+.muted { color: var(--ink-3); }
+.small { font-size: 12px; }
+.btn {
+  border: 1px solid var(--line-2); background: #fff; color: var(--ink);
+  padding: 9px 16px; border-radius: 8px; font-size: 14px; transition: all 0.15s ease;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn.primary:hover { background: #333; }
+.btn.ghost { background: transparent; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.page { min-height: 100%; display: flex; flex-direction: column; }
+.center-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.card {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 22px;
+}
+.seal {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--seal); color: var(--seal); border-radius: 4px;
+  font-family: var(--serif); font-weight: 700; letter-spacing: 0.1em;
+}
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.scroll { overflow-y: auto; }
+.hide-scroll::-webkit-scrollbar { width: 0; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+@media (max-width: 720px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
