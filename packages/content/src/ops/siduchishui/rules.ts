@@ -183,13 +183,14 @@ const rules: OpsRules = {
         if (optionId === 'opt1') {
           state.flags.crossStart = 1
           state.vars.ferry = 0
-          state.vars.ferryHold = 7
+          // 渡江窗口：难度越高，追兵越近、船工越难集中，渡完全军需要的天数越多
+          state.vars.ferryHold = state.difficulty === 'hell' ? 11 : state.difficulty === 'hard' ? 9 : state.difficulty === 'normal' ? 8 : 7
           orderPlayer(state, 'jiaopingdu')
           addReport(state, 'court', '金沙江', '决定主力由皎平渡渡江，一部向龙街佯动。', 'high', 0, true)
         } else if (optionId === 'opt2') {
           state.flags.crossStart = 2
           state.vars.ferry = 0
-          state.vars.ferryHold = 10
+          state.vars.ferryHold = state.difficulty === 'hell' ? 14 : state.difficulty === 'hard' ? 12 : 10
           orderPlayer(state, 'kunming')
           addReport(state, 'court', '金沙江', '全军转向龙街渡口，准备强渡。', 'mid', 0, true)
         } else if (optionId === 'opt3') {
