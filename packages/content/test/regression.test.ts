@@ -65,6 +65,6 @@ describe('campaign regression (historical routes)', () => {
   it('淮海历史路线可走完全程并形成合围（平衡调参中，暂不卡评级）', () => {
     const best = assertProgress('huaihai', huaihaiCampaign, huaihaiRules, 'D')
     if (!['full', 'partial', 'south', 'stall'].includes(best.endingId)) throw new Error('淮海结局异常：' + best.endingId)
-    if ((best.parts.find(p => p.key === 'jiawang')?.value ?? 0) <= 0) throw new Error('淮海应能触发贾汪战场转向')
+    if ((best.parts.find((p: { key: string; value: number }) => p.key === 'jiawang')?.value ?? 0) <= 0) throw new Error('淮海应能触发贾汪战场转向')
   })
 })
