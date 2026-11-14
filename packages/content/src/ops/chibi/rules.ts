@@ -139,9 +139,13 @@ const rules: OpsRules = {
     // 风向判定
     const wind = WIND_CYCLE[state.tick % WIND_CYCLE.length]
     state.vars.wind = wind
-    if (state.vars.firePlan && state.vars.waitWind && wind === 1 && !state.vars.caoBurn) {
-      const roll = ((state.seed + state.tick * 13) % 10) / 10
-      if (roll < 0.85) {
+    // 风向窗口只来一次：火攻失手后曹军加强戒备，不再给第二次机会
+    if (state.vars.firePlan && state.vars.waitWind && wind === 1 && !state.vars.caoBurn && !state.vars.fireFail) {
+      // 火攻成功率：史实窗口宽松，高难度下风向、曹军戒备都更难对付
+      // 哈希打散，保证不同 seed / tick 上的判定均匀分布
+      const roll = (Math.imul(state.seed ^ (state.tick * 2654435761), 2246822519) >>> 0) % 100 / 100
+      const fireChance = state.difficulty === 'hell' ? 0.55 : state.difficulty === 'hard' ? 0.68 : state.difficulty === 'normal' ? 0.8 : 0.92
+      if (roll < fireChance) {
         state.vars.caoBurn = 1
         for (const id of ['cao-navy', 'cao-main']) {
           const a = army(state, id)

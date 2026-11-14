@@ -101,4 +101,15 @@ function cycleSpeed(): void {
   .units { display: none; }
   .topbar { padding: 7px 10px; }
 }
+@media (max-width: 480px) {
+  .topbar { padding: 6px 8px; gap: 6px; }
+  .left, .right { gap: 5px; }
+  .date { font-size: 12px; }
+  .weather, .status, .pressure { font-size: 11px; }
+  .tokens { font-size: 11px; }
+  .tokens b { font-size: 12px; }
+  .ctl { padding: 4px 7px; font-size: 11px; border-radius: 6px; }
+  .stage { grid-template-rows: 34vh minmax(0, 1fr); }
+  .map-col { aspect-ratio: auto; max-height: none; }
+}
 </style>

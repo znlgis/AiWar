@@ -140,8 +140,11 @@ const rules: OpsRules = {
     }
     // 淝水后撤崩溃
     if (state.vars.askRetreat && !state.vars.qinCollapse && !state.vars.qinSteady && state.tick > 20) {
-      const roll = ((state.seed + state.tick * 37) % 100) / 100
-      if (roll < 0.9) {
+      // 秦军自乱概率：史实几乎必乱；高难度下秦军更稳，需要先打掉其组织
+      // 哈希打散，保证不同 seed / tick 上的判定均匀分布
+      const roll = (Math.imul(state.seed ^ (state.tick * 2246822519), 3266489917) >>> 0) % 100 / 100
+      const collapseChance = state.difficulty === 'hell' ? 0.5 : state.difficulty === 'hard' ? 0.68 : state.difficulty === 'normal' ? 0.82 : 0.95
+      if (roll < collapseChance) {
         state.vars.qinCollapse = 1
         for (const id of ['qin-front', 'qin-main', 'qin-liang']) {
           const a = army(state, id)

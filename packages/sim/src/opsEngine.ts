@@ -594,7 +594,8 @@ export function logisticsTick(state: OpsState, campaign: OpsCampaign, narrative:
       supply = path ? 'threatened' : 'cut'
     }
     army.supply = supply
-    const delta = supply === 'cut' ? -2.2 : supply === 'threatened' ? -1 : 0
+    const supplyFactor = campaign.difficulty[state.difficulty]?.supplyFactor ?? 1
+    const delta = (supply === 'cut' ? -2.2 : supply === 'threatened' ? -1 : 0) * supplyFactor
     const city = army.pos.kind === 'city' ? state.cities[army.pos.city] : undefined
     if (supply === 'ok' && city && city.owner === army.faction) {
       army.foodDays = clamp(army.foodDays + campaign.balance.resupplyDays - 1, 0, campaign.balance.maxFoodDays)
@@ -609,7 +610,7 @@ export function logisticsTick(state: OpsState, campaign: OpsCampaign, narrative:
       army.fatigue = clamp(army.fatigue - 2, 0, 100)
       army.morale = clamp(army.morale + 0.2, 5, 100)
     } else {
-      army.foodDays = clamp(army.foodDays + delta - 1, 0, campaign.balance.maxFoodDays)
+      army.foodDays = clamp(army.foodDays + delta - campaign.balance.supplyFactor, 0, campaign.balance.maxFoodDays)
       army.fatigue = clamp(army.fatigue - 1, 0, 100)
     }
     if (army.foodDays <= 0) {

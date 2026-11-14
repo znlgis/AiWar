@@ -246,11 +246,15 @@ const rules: OpsRules = {
         a.troops = Math.min(base, Math.round(a.troops + base * 0.0012))
       }
     }
-    // 后勤：支前运力
-    if (state.tick % 6 === 0) {
-      state.vars.logistics = clamp((state.vars.logistics ?? 100) - 3 + (state.vars.siegeNotAssault ? 2 : 0), 0, 100)
-      if ((state.vars.logistics ?? 100) < 40 && state.tick % 12 === 0) {
-        addReport(state, 'court', '后方', '支前运力紧张，前线粮食与弹药吃紧。', 'mid', 1, true)
+    // 后勤：支前运力——总攻最耗运力，围而不打最省
+    if (state.tick % 4 === 0) {
+      const diffDrain = state.difficulty === 'hell' ? 1.5 : state.difficulty === 'hard' ? 1.25 : state.difficulty === 'normal' ? 1 : 0.85
+      const drain = (state.vars.generalAssault === 1 ? 5 : state.vars.siegeNotAssault === 1 ? 1.2 : 3) * diffDrain
+      state.vars.logistics = clamp((state.vars.logistics ?? 100) - drain, 0, 100)
+      const lg = state.vars.logistics ?? 100
+      if (lg < 35) {
+        for (const a of armiesOf(state, state.playerFaction)) a.morale = clamp(a.morale - 0.25, 5, 100)
+        if (state.tick % 12 === 0) addReport(state, 'court', '后方', '支前运力告急，前线粮食与弹药吃紧。', 'mid', 1, true)
       }
     }
     // 双堆集围歼：第12兵团被围后，中野持续压缩；玩家不再改令时保持围困
@@ -370,7 +374,12 @@ const rules: OpsRules = {
   },
 
   powerMod(state, campaign, armyId, side): number {
-    if (armyId.startsWith('pl-')) return side === 'attacker' ? 2.3 : 1.55
+    if (armyId.startsWith('pl-')) {
+      // 支前运力直接决定攻势强度：运力不足，弹药粮食跟不上，攻坚与野战都打折
+      const lg = state.vars.logistics ?? 100
+      const supplyMod = lg >= 70 ? 1 : lg >= 45 ? 0.9 : lg >= 25 ? 0.78 : 0.6
+      return (side === 'attacker' ? 2.3 : 1.55) * supplyMod
+    }
     return 1
   },
 

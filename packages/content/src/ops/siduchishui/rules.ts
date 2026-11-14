@@ -213,11 +213,13 @@ const rules: OpsRules = {
   aiTick(state, campaign, narrative): void {
     const feintActive = (state.flags.feint ?? 0) === 1 && (state.vars.feintDays ?? 0) < 6
     if (state.flags.feint === 1) state.vars.feintDays = (state.vars.feintDays ?? 0) + 1
-    // 敌军协同差、情报滞后：每 6 天才刷新一次追击目标，且不敢贴得太近
+    // 敌军协同差、情报滞后：按难度刷新追击目标（史实 8 天 / 普通 6 天 / 困难 4 天 / 地狱 3 天）
+    const diff = campaign.difficulty[state.difficulty]
+    const cadence = diff.id === 'hell' ? 3 : diff.id === 'hard' ? 4 : diff.id === 'normal' ? 6 : 8
     for (const id of ENEMY_MAIN) {
       const enemy = army(state, id)
       if (!enemy || enemy.removed) continue
-      if (state.tick % 6 !== 0) continue
+      if (state.tick % cadence !== 0) continue
       if ((id === 'kmt-chuan-1' || id === 'kmt-chuan-2') && !feintActive) continue
       const fromCity = enemy.pos.kind === 'city' ? enemy.pos.city : enemy.pos.from
       if (!fromCity) continue
@@ -256,10 +258,12 @@ const rules: OpsRules = {
       const crossing = state.vars.ferry ?? 0
       const total = state.vars.ferryHold ?? 7
       const atFerry = armiesOf(state, state.playerFaction).some(a => a.pos.kind === 'city' && (a.pos.city === 'jiaopingdu' || a.pos.city === 'kunming'))
+      // 高难度下敌军封锁半径更大，渡口更容易被盯死
+      const blockRadius = state.difficulty === 'hell' ? 3 : state.difficulty === 'hard' ? 2 : 1
       const enemyNear = ENEMY_MAIN.some(id => {
         const e = army(state, id)
         if (!e || e.removed || e.pos.kind !== 'city') return false
-        return distance(state, e.pos.city, 'jiaopingdu') <= 1
+        return distance(state, e.pos.city, 'jiaopingdu') <= blockRadius
       })
       if (atFerry && !enemyNear) {
         state.vars.ferry = Math.min(total, crossing + 1)

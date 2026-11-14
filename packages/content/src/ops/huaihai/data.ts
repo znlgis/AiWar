@@ -143,10 +143,10 @@ const decisions: DecisionNodeDef[] = [
 ]
 
 const difficulty: Record<DifficultyId, Difficulty> = {
-  hist: { id: 'hist', name: '史实', label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 0.92, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1.0, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1.08, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1.15, defaultQuality: 0.1 },
+  hist: { id: 'hist', name: '史实', label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 1, defaultQuality: 0.9 },
+  normal: { id: 'normal', name: '普通', label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1, defaultQuality: 0.1 },
 }
 
 export const huaihaiCampaign: OpsCampaign = {
