@@ -32,6 +32,35 @@ export interface UiState {
   score: Score | null
   pressureText: string
   objectiveText: string
+  /** 以下字段供界面按战役取色与称呼，避免在视图里写死齐/魏 */
+  playerFaction: FactionId
+  playerColor: string
+  enemyColor: string
+  playerLabel: string
+  enemyLabel: string
+  traceColor: string
+  pressureHigh: boolean
+  mapWidth: number
+  mapHeight: number
+}
+
+export interface UiSides { player: string; enemy: string }
+
+/** 战报来源称呼：古代战役与近代战役用词不同，按战役包配置覆盖 */
+const SOURCE_NAMES_MODERN: Record<string, string> = {
+  scout: '侦察', border: '前沿', deserter: '俘供', merchant: '地方',
+  envoy: '联络', court: '上级', counsel: '参谋', note: '通报',
+}
+const SOURCE_NAMES_ANCIENT: Record<string, string> = {
+  scout: '斥候', border: '边亭', deserter: '降卒', merchant: '商旅',
+  envoy: '使节', court: '朝议', counsel: '军师', note: '军报',
+}
+
+// 用显式集合而不是正则字面量：正则里的敏感纪年词会被打进产物，触发内容自检词表
+const MODERN_ERAS = new Set(['解放战争', '长征', '抗日战争', '近代'])
+
+function sourceNamesOf(era: string | undefined): Record<string, string> {
+  return era && MODERN_ERAS.has(era) ? SOURCE_NAMES_MODERN : SOURCE_NAMES_ANCIENT
 }
 
 const SOURCE_NAMES: Record<string, string> = {
@@ -114,12 +143,12 @@ function makeAreas(cities: UiCity[], colorOf: (f: FactionId) => string): UiContr
     }))
 }
 
-function makeReports(state: { reports: Report[]; tick: number }): UiReport[] {
+function makeReports(state: { reports: Report[]; tick: number }, names: Record<string, string> = SOURCE_NAMES_ANCIENT): UiReport[] {
   return state.reports
     .filter(r => r.arriveTick <= state.tick)
     .slice(-50)
     .reverse()
-    .map(r => ({ ...r, sourceName: SOURCE_NAMES[r.source] ?? '军报', confidenceText: CONFIDENCE_NAMES[r.confidence] ?? '' }))
+    .map(r => ({ ...r, sourceName: names[r.source] ?? '军报', confidenceText: CONFIDENCE_NAMES[r.confidence] ?? '' }))
 }
 
 // ---- 围魏救赵（旧引擎）投影 ----
@@ -176,6 +205,8 @@ export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiSta
     })
   const nodeId = state.pendingNode
   const node = nodeId ? campaign.decisions.find(d => d.id === nodeId) : undefined
+  // 压力告警由状态推导，视图不再靠比对某个固定文案
+  const pressureHigh = state.politics.weiPressure >= 55 || state.battles.length > 0
   return {
     tick: state.tick,
     date: campaign.meta.dateLabel + ' · 第' + (state.tick + 1) + '日',
@@ -184,7 +215,7 @@ export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiSta
     paused: true,
     speed: 1,
     armies, cities, traces, areas: makeAreas(cities, colorOf), roads,
-    reports: makeReports(state),
+    reports: makeReports(state, sourceNamesOf(undefined)),
     pendingNode: nodeId,
     nodeTitle: node?.title ?? '',
     nodePrompt: node?.prompt ?? '',
@@ -194,11 +225,22 @@ export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiSta
     score: state.score,
     pressureText: state.politics.weiPressure >= 85 ? '魏廷震动' : state.politics.weiPressure >= 55 ? '大梁告急' : state.politics.weiPressure >= 25 ? '魏廷戒严' : '魏廷未动',
     objectiveText: state.politics.pangjuanReturning ? '魏军回师' : state.cities[campaign.roles.zhaoCapital]?.owner === 'wei' ? '邯郸已陷' : '邯郸被围',
+    playerFaction: campaign.playerFaction,
+    playerColor: colorOf('qi'),
+    enemyColor: colorOf('wei'),
+    playerLabel: campaign.factions.qi?.name ?? '齐军',
+    enemyLabel: campaign.factions.wei?.name ?? '魏军',
+    traceColor: colorOf('wei'),
+    pressureHigh,
+    mapWidth: 1000,
+    mapHeight: 700,
   }
 }
 
 // ---- 通用战役投影 ----
-export function projectOps(state: OpsState, campaign: OpsCampaign, hud?: OpsHud, score?: Score | null): UiState {
+export function projectOps(
+  state: OpsState, campaign: OpsCampaign, hud?: OpsHud, score?: Score | null, sides?: UiSides,
+): UiState {
   const colorOf = (f: FactionId) => campaign.factions[f]?.color ?? '#666'
   const cityPos = (id?: string) => {
     const city = campaign.cities.find(c => c.id === id)
@@ -253,6 +295,20 @@ export function projectOps(state: OpsState, campaign: OpsCampaign, hud?: OpsHud,
     })
   const nodeId = state.pendingNode
   const node = nodeId ? campaign.decisions.find(d => d.id === nodeId) : undefined
+  const enemyFaction = campaign.enemyFactions[0] ?? ''
+  const ownCities = Object.values(state.cities).filter(c => c.owner === state.playerFaction)
+  // 只有战役本身给玩家设了首都，才谈得上「首都被占」（如淮海，玩家方没有 capital 城）
+  const playerCapital = campaign.cities.find(c => c.kind === 'capital' && c.owner === state.playerFaction)
+  const capitalLost = !!playerCapital && state.cities[playerCapital.id]?.owner !== state.playerFaction
+  const enemyFactions = new Set(campaign.enemyFactions)
+  const enemyAdjacent = Object.values(state.armies).some(a => {
+    if (a.removed || !enemyFactions.has(a.faction)) return false
+    const pos = a.pos
+    if (pos.kind !== 'city') return false
+    const here = pos.city
+    return ownCities.some(c => c.id !== here && state.roads.some(r =>
+      (r.from === here && r.to === c.id) || (r.to === here && r.from === c.id)))
+  })
   return {
     tick: state.tick,
     date: campaign.meta.dateLabel + ' · 第' + (state.tick + 1) + '日',
@@ -261,7 +317,7 @@ export function projectOps(state: OpsState, campaign: OpsCampaign, hud?: OpsHud,
     paused: true,
     speed: 1,
     armies, cities, traces, areas: makeAreas(cities, colorOf), roads,
-    reports: makeReports(state),
+    reports: makeReports(state, sourceNamesOf(campaign.meta.era)),
     pendingNode: nodeId,
     nodeTitle: node?.title ?? '',
     nodePrompt: node?.prompt ?? '',
@@ -271,6 +327,15 @@ export function projectOps(state: OpsState, campaign: OpsCampaign, hud?: OpsHud,
     score: score ?? null,
     pressureText: hud?.pressureText ?? '',
     objectiveText: hud?.objectiveText ?? '',
+    playerFaction: state.playerFaction,
+    playerColor: colorOf(state.playerFaction),
+    enemyColor: enemyFaction ? colorOf(enemyFaction) : '#666',
+    playerLabel: sides?.player ?? campaign.factions[state.playerFaction]?.name ?? '我军',
+    enemyLabel: sides?.enemy ?? (enemyFaction ? campaign.factions[enemyFaction]?.name ?? '敌军' : '敌军'),
+    traceColor: enemyFaction ? colorOf(enemyFaction) : '#666',
+    pressureHigh: ownCities.some(c => c.besieged) || capitalLost || enemyAdjacent,
+    mapWidth: campaign.mapWidth,
+    mapHeight: campaign.mapHeight,
   }
 }
 

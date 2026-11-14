@@ -27,7 +27,7 @@ function cycleSpeed(): void {
         <span class="dot" />
         <span class="status">{{ ui.objectiveText }}</span>
         <span class="dot" />
-        <span class="pressure" :class="{ high: ui.pressureText !== '魏廷未动' }">{{ ui.pressureText }}</span>
+        <span class="pressure" :class="{ high: ui.pressureHigh }">{{ ui.pressureText }}</span>
       </div>
       <div class="right">
         <span class="tokens">军令牌 <b>{{ ui.tokens }}</b></span>
@@ -69,7 +69,7 @@ function cycleSpeed(): void {
 
 <style scoped>
 .battle { height: 100%; display: flex; flex-direction: column; background: var(--paper); }
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: #fffdf8; flex-wrap: wrap; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left)); border-bottom: 1px solid var(--line); background: #fffdf8; flex-wrap: wrap; }
 .left, .right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .date { font-size: 13px; font-weight: 600; }
 .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--line-2); }

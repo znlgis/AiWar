@@ -77,7 +77,7 @@ function projectNow(): UiState {
   if (pack.engine === 'ops' && ops) {
     const hud = pack.rules.hud?.(ops, pack.campaign)
     const score = ops.over ? toScore(pack.rules.score(ops, pack.campaign), pack) : null
-    const ui = projectOps(ops, pack.campaign, hud, score)
+    const ui = projectOps(ops, pack.campaign, hud, score, { player: pack.unitsLabel, enemy: pack.enemyLabel })
     ui.paused = store.ui ? store.ui.paused : true
     ui.speed = store.ui ? store.ui.speed : 1
     ui.decisionSeconds = store.ui?.decisionSeconds ?? 0
@@ -221,7 +221,9 @@ export function start(): void {
   if (!store.ui) return
   store.ui.paused = false
   if (timer) window.clearInterval(timer)
-  timer = window.setInterval(tickOnce, store.ui.speed * 650)
+  // 650ms/日 会让 70 天的战役 50 秒通关，战报来不及读。放慢到约 2 秒/日，
+  // 单局回到数分钟量级，×2/×4 加速这时才有意义。
+  timer = window.setInterval(tickOnce, store.ui.speed * 2000)
 }
 
 export function stop(): void {

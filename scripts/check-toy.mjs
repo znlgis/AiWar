@@ -15,13 +15,13 @@ import { fileURLToPath } from 'node:url';
 // ============================================================================
 const RULES_VERSION = '2026-11-12';
 const CONFIG = {
-  name: 'AI 战争模拟器 · 围魏救赵',
+  name: 'AI 战争模拟器 · 五战',
   dist: 'apps/site/dist',
   zip: 'release/aiwar-guiling.zip',
   sourceRoots: ['apps/site/src', 'packages/sim/src', 'packages/content/src'],
   allowHosts: ['www.w3.org'],
   urlTextAllow: ['vuejs.org'],
-  sensitiveWords: ['血', '尸', '屠杀', '斩首', '自杀', '色情', '赌博', '毒品', '枪支', '恐怖袭击'],
+  sensitiveWords: ['血', '尸', '屠杀', '斩首', '自杀', '色情', '赌博', '毒品', '枪支', '恐怖袭击', '剿总', '民国'],
   securityPatterns: [
     { name: 'eval', pattern: 'eval(' },
     { name: 'new Function', pattern: 'new Function' },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
-import { store, factionColor } from '../../store/game'
+import { store } from '../../store/game'
 
 const ui = computed(() => store.ui!)
 const pointsStr = (pts: [number, number][]) => pts.map(p => p[0] + ',' + p[1]).join(' ')
@@ -11,17 +11,68 @@ const roads = computed(() => ui.value.roads.filter(r => {
 }))
 
 // —— 视口：平移 + 缩放（拖动 / 滚轮 / 双指 / 双击复位）——
-const VIEW = { x: 60, y: 90, w: 900, h: 540 }
+// 视野按战役地图尺寸推导：写死 900×540 会把四渡赤水的皎平渡等南部城邑裁在画外
+const baseView = computed(() => {
+  const w = ui.value.mapWidth || 1000
+  const h = ui.value.mapHeight || 700
+  const pad = Math.round(Math.min(w, h) * 0.07)
+  return { x: -pad, y: -pad, w: w + pad * 2, h: h + pad * 2 }
+})
 const MIN_K = 1
 const MAX_K = 4.5
 const view = reactive({ x: 0, y: 0, k: 1 })
 const svgRef = ref<SVGSVGElement | null>(null)
+
+// 城名标签做重叠剔除：城邑密集时（如淮海、淝水寿阳周边）标签会压在一起，
+// 优先保留都城、被围之城与玩家城，其余按顺序放置，放不下就不画名字（标记仍在）。
+const labelIds = computed(() => {
+  const placed: { x1: number; y1: number; x2: number; y2: number }[] = []
+  const out = new Set<string>()
+  const priority = (c: { kind: string; besieged: boolean; owner: string }) =>
+    c.kind === 'capital' ? 0 : c.besieged ? 1 : c.owner === ui.value.playerFaction ? 2 : 3
+  const list = ui.value.cities
+    .filter(c => c.known || c.owner === ui.value.playerFaction)
+    .slice()
+    .sort((a, b) => priority(a) - priority(b))
+  const fs = 13.5
+  for (const c of list) {
+    const w = c.name.length * fs + 6
+    const h = fs + 5
+    const x1 = c.x - w / 2
+    const x2 = c.x + w / 2
+    const y1 = c.y + 12
+    const y2 = y1 + h
+    if (placed.some(r => !(x2 < r.x1 || x1 > r.x2 || y2 < r.y1 || y1 > r.y2))) continue
+    placed.push({ x1, y1, x2, y2 })
+    out.add(c.id)
+  }
+  return out
+})
+
+// 同城多支部队时把标记扇形排开：否则「北府兵」与「水军」会叠在同一个点上，谁也看不清
+const armyMarkers = computed(() => {
+  const groups = new Map<string, number>()
+  return ui.value.armies.map(a => {
+    const key = Math.round(a.x) + ':' + Math.round(a.y)
+    const index = groups.get(key) ?? 0
+    groups.set(key, index + 1)
+    const total = ui.value.armies.filter(o => Math.round(o.x) === Math.round(a.x) && Math.round(o.y) === Math.round(a.y)).length
+    if (total <= 1) return { ...a, x: a.x, y: a.y, labelY: -22 }
+    // 同城多军：横向排开，标签上下交错，避免两个名字叠在一起看不清
+    return {
+      ...a,
+      x: a.x + (index - (total - 1) / 2) * 34,
+      y: a.y,
+      labelY: index % 2 === 0 ? -22 : 32,
+    }
+  })
+})
 const dragging = ref(false)
 const pointers = new Map<number, { x: number; y: number }>()
 let pinchStart: { dist: number; k: number; cx: number; cy: number; tx: number; ty: number } | null = null
 
 function clampView(): void {
-  const { x: vx, y: vy, w, h } = VIEW
+  const { x: vx, y: vy, w, h } = baseView.value
   const k = Math.min(MAX_K, Math.max(MIN_K, view.k))
   view.k = k
   view.x = Math.min(vx - k * vx, Math.max(vx + w - k * (vx + w), view.x))
@@ -115,7 +166,8 @@ function resetView(): void {
 }
 
 function zoomButton(factor: number): void {
-  zoomAt(VIEW.x + VIEW.w / 2, VIEW.y + VIEW.h / 2, factor)
+  const v = baseView.value
+  zoomAt(v.x + v.w / 2, v.y + v.h / 2, factor)
 }
 
 onBeforeUnmount(() => {
@@ -128,7 +180,7 @@ onBeforeUnmount(() => {
     <svg
       ref="svgRef"
       class="map-svg"
-      :viewBox="VIEW.x + ' ' + VIEW.y + ' ' + VIEW.w + ' ' + VIEW.h"
+      :viewBox="baseView.x + ' ' + baseView.y + ' ' + baseView.w + ' ' + baseView.h"
       preserveAspectRatio="xMidYMid meet"
       role="img"
       aria-label="势力范围图，可拖动缩放"
@@ -140,7 +192,7 @@ onBeforeUnmount(() => {
       @pointerleave="onPointerUp"
       @dblclick="resetView"
     >
-      <rect x="0" y="0" width="1000" height="700" fill="#f7f6f1" />
+      <rect :x="-40" :y="-40" :width="ui.mapWidth + 80" :height="ui.mapHeight + 80" fill="#f7f6f1" />
       <g :transform="'translate(' + view.x + ',' + view.y + ') scale(' + view.k + ')'">
         <g>
           <polygon
@@ -169,12 +221,12 @@ onBeforeUnmount(() => {
         </g>
         <g>
           <g v-for="c in ui.cities" :key="c.id" :transform="'translate(' + c.x + ',' + c.y + ')'">
-            <template v-if="c.known || c.owner === 'qi'">
+            <template v-if="c.known || c.owner === ui.playerFaction">
               <circle v-if="c.kind === 'capital'" r="7.5" :fill="c.color" stroke="#fffdf8" stroke-width="2" />
               <rect v-else-if="c.kind === 'fort'" x="-5" y="-5" width="10" height="10" :fill="c.color" stroke="#fffdf8" stroke-width="2" />
               <circle v-else r="5.2" :fill="c.color" stroke="#fffdf8" stroke-width="1.8" />
               <circle v-if="c.besieged" r="13" fill="none" :stroke="c.color" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.8" />
-              <text class="city-label" y="24" text-anchor="middle" font-size="15" fill="#24262a" font-weight="600">{{ c.name }}</text>
+              <text v-if="labelIds.has(c.id)" class="city-label" y="22" text-anchor="middle" font-size="13.5" fill="#24262a" font-weight="600">{{ c.name }}</text>
             </template>
             <template v-else>
               <circle r="4.5" fill="#d6d3c9" stroke="#bdb9ad" stroke-width="1" stroke-dasharray="2 2" />
@@ -184,15 +236,15 @@ onBeforeUnmount(() => {
         </g>
         <g>
           <g v-for="t in ui.traces" :key="t.id" :transform="'translate(' + t.x + ',' + t.y + ')'">
-            <circle r="17" fill="none" :stroke="factionColor('wei')" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.75" />
-            <text class="trace-label" y="-24" text-anchor="middle" font-size="11.5" :fill="factionColor('wei')">魏军 · {{ t.text }}</text>
+            <circle r="17" fill="none" :stroke="ui.traceColor" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.75" />
+            <text class="trace-label" y="-24" text-anchor="middle" font-size="11.5" :fill="ui.traceColor">{{ ui.enemyLabel }} · {{ t.text }}</text>
           </g>
         </g>
         <g>
-          <g v-for="a in ui.armies" :key="a.id" :transform="'translate(' + a.x + ',' + a.y + ')'">
-            <circle r="15" fill="#fffdf8" :stroke="factionColor('qi')" stroke-width="2" />
-            <circle r="5" :fill="factionColor('qi')" />
-            <text class="unit-label" y="-22" text-anchor="middle" font-size="13" fill="#24586f" font-weight="600">{{ a.name }}</text>
+          <g v-for="a in armyMarkers" :key="a.id" :transform="'translate(' + a.x + ',' + a.y + ')'">
+            <circle r="15" fill="#fffdf8" :stroke="ui.playerColor" stroke-width="2" />
+            <circle r="5" :fill="ui.playerColor" />
+            <text class="unit-label" :y="a.labelY" text-anchor="middle" font-size="12.5" fill="#24586f" font-weight="600">{{ a.name }}</text>
           </g>
         </g>
       </g>
@@ -223,10 +275,11 @@ text { font-family: var(--font); user-select: none; }
 .map-tools button:hover { border-color: var(--ink-3); }
 .map-hint { position: absolute; left: 12px; top: 10px; margin: 0; font-size: 11px; color: var(--ink-3); background: rgba(255, 253, 248, 0.82); border-radius: 6px; padding: 2px 7px; pointer-events: none; }
 @media (max-width: 860px) {
-  .city-label { font-size: 17px; }
-  .unit-label { font-size: 15px; }
-  .trace-label { font-size: 13px; }
-  .river-label { font-size: 13px; }
+  /* 小屏上字体单位被整体缩得更小，标签反而更容易糊在一起：略放大，靠上面的重叠剔除保证可读 */
+  .city-label { font-size: 15px; }
+  .unit-label { font-size: 13px; }
+  .trace-label { font-size: 12px; }
+  .river-label { font-size: 11px; }
   .map-hint { display: none; }
   .map-tools { right: 8px; bottom: 8px; }
 }

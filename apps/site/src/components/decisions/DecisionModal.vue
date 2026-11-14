@@ -33,14 +33,14 @@ function confirm() {
         >
           <span class="index">{{ String.fromCharCode(65 + i) }}</span>
           <span class="body">
-            <span class="label">{{ opt.label }}<em v-if="opt.recommended">荐</em></span>
+            <span class="label">{{ opt.label }}</span>
             <span class="desc">{{ opt.desc }}</span>
             <span v-if="opt.hint" class="hint">{{ opt.hint }}</span>
           </span>
         </button>
       </div>
       <footer class="foot">
-        <span class="count">还剩 {{ ui.decisionSeconds }} 秒，逾时将依令而行</span>
+        <span class="count">还剩 {{ ui.decisionSeconds }} 秒，逾时依令而行并折损一枚军令牌</span>
         <button class="btn primary" :disabled="!selected" @click="confirm">确认此策</button>
       </footer>
     </div>

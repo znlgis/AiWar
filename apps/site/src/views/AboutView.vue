@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { currentPack, toTitle, store } from '../store/game'
+import { APP_VERSION } from '../version'
 
 const pack = computed(() => currentPack())
+const appVersion = APP_VERSION
 </script>
 
 <template>
@@ -24,7 +26,7 @@ const pack = computed(() => currentPack())
           <li><b>决策</b>：关键节点弹出选择；逾时按难度执行默认方案，质量随难度下降。</li>
           <li><b>军令</b>：军令牌点选「部队 → 任务 → 目标」，无自由文本输入；军令有传令延迟。</li>
           <li><b>情报</b>：战报有来源、送达延迟、可信度；同一件事可能被不同来源说成两样。势力图上只显示已探明信息与敌军最后出现位置。</li>
-          <li><b>难度</b>：只影响情报质量、决策窗口与敌方判断力，不给敌方战斗数值加成。</li>
+          <li><b>难度</b>：难度影响情报质量、决策窗口与关键事件（风向、敌军是否自乱）的走势，不给敌方兵力数值加成。</li>
           <li><b>地图</b>：可拖动平移，滚轮或双指缩放，双击复位；右下角有缩放按钮。</li>
           <li><b>音效</b>：战鼓、号角、翻简与胜负音由 WebAudio 实时合成，无音频文件；顶栏可静音。</li>
           <li><b>存档</b>：按战役自动存档于浏览器本地；战役进行中不提供手动读档回退。</li>
@@ -43,7 +45,7 @@ const pack = computed(() => currentPack())
       <section class="card">
         <h2>制作说明</h2>
         <p>所有资源随包发布，运行时不需要联网；战报文案由语料库在运行时组合生成；推演与敌方决策由确定性规则内核完成，同一随机种子与同一串决策会得到同一结局。</p>
-        <p class="muted small">当前难度：{{ pack.difficulty[store.difficulty].name }} · 版本 0.2.0</p>
+        <p class="muted small">当前难度：{{ pack.difficulty[store.difficulty].name }} · 版本 {{ appVersion }}</p>
       </section>
     </div>
   </main>

@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { store, newCampaign, toTitle, toAbout, currentPack } from '../store/game'
+import { band } from '../store/project'
+
+// 战前简报承诺“没有精确伤亡”，结局页也给分档，不给到个位数的人数
+function lossText(n: number): string {
+  return band(Math.max(0, Math.round(n)))
+}
 
 const ui = computed(() => store.ui!)
 const score = computed(() => ui.value.score!)
 const pack = computed(() => currentPack())
 const sides = computed(() => score.value.sides ?? { player: '我军', enemy: '敌军' })
-const facts = computed(() => (score.value as unknown as { facts?: { qiLost: number; weiLost: number; zhaoSurvived: boolean; ambush: boolean; citiesTaken: string[] } }).facts)
+const facts = computed(() => (score.value as unknown as {
+  facts?: { playerLost?: number; enemyLost?: number; zhaoSurvived: boolean; ambush: boolean; citiesTaken: string[] }
+}).facts)
 const highlights = computed(() => score.value.highlights ?? [])
 const lines = computed(() => (score.value as unknown as { lines?: string[] }).lines ?? facts.value?.citiesTaken ?? [])
 </script>
@@ -42,8 +50,8 @@ const lines = computed(() => (score.value as unknown as { lines?: string[] }).li
           <h2>战果</h2>
           <dl class="facts">
             <template v-if="facts">
-              <div><dt>{{ sides.player }}折损</dt><dd>{{ Math.round(facts.qiLost).toLocaleString() }} 人</dd></div>
-              <div><dt>{{ sides.enemy }}折损</dt><dd>{{ Math.round(facts.weiLost).toLocaleString() }} 人</dd></div>
+              <div><dt>{{ sides.player }}折损</dt><dd>{{ lossText(facts.playerLost ?? 0) }}</dd></div>
+              <div><dt>{{ sides.enemy }}折损</dt><dd>{{ lossText(facts.enemyLost ?? 0) }}</dd></div>
               <div><dt>邯郸</dt><dd>{{ facts.zhaoSurvived ? '保全' : '陷落' }}</dd></div>
               <div><dt>伏击</dt><dd>{{ facts.ambush ? '成功' : '未成' }}</dd></div>
             </template>

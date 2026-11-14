@@ -5,7 +5,7 @@ import { store, submitOrder, orderPreview, closeOrder, currentPack } from '../..
 
 const ui = computed(() => store.ui!)
 const armies = computed(() => ui.value.armies)
-const cities = computed(() => ui.value.cities.filter(c => c.known || c.owner === 'qi'))
+const cities = computed(() => ui.value.cities.filter(c => c.known || c.owner === ui.value.playerFaction))
 const selectedArmies = ref<string[]>([])
 const task = ref<Task>('march')
 const target = ref('')
@@ -102,7 +102,7 @@ function cancel() { closeOrder() }
         </div>
       </section>
 
-      <section>
+      <section v-if="currentPack().engine === 'legacy'">
         <h3>或：外交</h3>
         <div class="chips">
           <button v-for="e in ENVOYS" :key="e.id" class="chip" :class="{ on: isEnvoy && target === e.id }" @click="pickEnvoy(e.id)">{{ e.label }}</button>
@@ -126,7 +126,7 @@ function cancel() { closeOrder() }
 
 <style scoped>
 .overlay { position: fixed; inset: 0; background: rgba(24, 24, 22, 0.4); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
-.sheet { width: min(720px, 100%); max-height: 92vh; overflow-y: auto; background: #fffdf8; border-radius: 14px 14px 0 0; padding: 20px 22px 26px; box-shadow: 0 -10px 40px rgba(0,0,0,.2); }
+.sheet { width: min(720px, 100%); max-height: 92vh; overflow-y: auto; background: #fffdf8; border-radius: 14px 14px 0 0; padding: 20px 22px calc(26px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,.2); }
 header h2 { font-size: 19px; font-family: var(--serif); letter-spacing: .08em; }
 section { margin-top: 14px; }
 h3 { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-bottom: 7px; letter-spacing: .08em; }

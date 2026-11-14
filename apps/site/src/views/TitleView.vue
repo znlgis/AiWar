@@ -30,7 +30,7 @@ function cont() {
       <header class="hero">
         <span class="eyebrow">AI 战争模拟器</span>
         <h1 class="serif">五战</h1>
-        <p class="sub">围魏救赵 · 赤壁之战 · 淝水之战 · 四渡赤水 · 淮海战役</p>
+        <p class="sub">{{ PACKS.map(p => p.meta.title).join(' · ') }}</p>
         <p class="lede">只凭前线战报与势力范围，在关键节点做出决策。战场由推演内核与敌方 AI 决定——结局不必与史书相同。</p>
       </header>
 
@@ -61,7 +61,7 @@ function cont() {
             <span class="label">{{ d.label }}</span>
           </button>
         </div>
-        <p class="note">难度影响情报质量、决策窗口与敌方判断力，不给敌方战斗数值加成。</p>
+        <p class="note">难度影响情报质量、决策窗口与关键事件（风向、敌军是否自乱）的走势，不给敌方兵力数值加成。</p>
       </section>
 
       <div class="actions">
@@ -72,7 +72,7 @@ function cont() {
 
       <footer class="foot">
         <span>历史写意改编 · 地图与兵力经游戏化处理</span>
-        <span class="muted">单局约 20–30 分钟</span>
+        <span class="muted">单局约 5–8 分钟</span>
       </footer>
     </div>
   </main>
