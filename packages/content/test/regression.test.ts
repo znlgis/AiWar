@@ -23,8 +23,8 @@ const HISTORIC_PICKS: Record<string, Record<string, string>> = {
   'huaihai-1948': { d1: 'opt2', d2: 'opt1', d3: 'opt1', d4: 'opt1', d5: 'opt1', d6: 'opt1', d7: 'opt1', d8: 'opt1' },
 }
 
-function run(campaign: any, rules: any, seed: number) {
-  const st = createOpsState(campaign, 'normal', seed)
+function run(campaign: any, rules: any, seed: number, difficulty: 'hist' | 'normal' | 'hard' | 'hell' = 'normal') {
+  const st = createOpsState(campaign, difficulty, seed)
   rules.opening(st, campaign, narrative)
   const picks = HISTORIC_PICKS[campaign.meta.id] ?? {}
   for (let i = 0; i < 120; i++) {
@@ -77,7 +77,7 @@ describe('campaign regression (historical routes)', () => {
     ] as const
     for (const [name, campaign, rules] of cases) {
       const avg = (diff: 'hist' | 'hell') => {
-        const rows = [11, 12, 13, 14, 15].map(seed => run(campaign, rules, diff, seed))
+        const rows = [11, 12, 13, 14, 15].map(seed => run(campaign, rules, seed, diff))
         return rows.reduce((s, r) => s + r.total, 0) / rows.length
       }
       const hist = avg('hist')
