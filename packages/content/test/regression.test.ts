@@ -36,7 +36,7 @@ function run(campaign: any, rules: any, seed: number) {
 }
 
 function assertProgress(name: string, campaign: any, rules: any, minGrade: string) {
-  const order = 'SDCBA'
+  const order = 'SABCD'
   const rows = [1, 2, 3].map(seed => run(campaign, rules, seed))
   const best = rows.reduce((a, b) => (order.indexOf(a.grade) <= order.indexOf(b.grade) ? a : b))
   console.log(name, 'grades', rows.map(r => r.grade).join(''), 'endings', [...new Set(rows.map(r => r.endingId))].join(','), 'best', best.endingId, best.grade, best.total)
@@ -62,9 +62,9 @@ describe('campaign regression (historical routes)', () => {
     if (best.endingId !== 'victory' && best.endingId !== 'crushed') throw new Error('淝水应能取胜，实际 ' + best.endingId)
   })
 
-  it('淮海历史路线可走完全程并形成合围（平衡调参中，暂不卡评级）', () => {
-    const best = assertProgress('huaihai', huaihaiCampaign, huaihaiRules, 'D')
-    if (!['full', 'partial', 'south', 'stall'].includes(best.endingId)) throw new Error('淮海结局异常：' + best.endingId)
+  it('淮海历史路线可达 B 以上', () => {
+    const best = assertProgress('huaihai', huaihaiCampaign, huaihaiRules, 'B')
+    if (!['full', 'partial', 'south'].includes(best.endingId)) throw new Error('淮海应能围歼敌军，实际 ' + best.endingId)
     if ((best.parts.find((p: { key: string; value: number }) => p.key === 'jiawang')?.value ?? 0) <= 0) throw new Error('淮海应能触发贾汪战场转向')
   })
 })

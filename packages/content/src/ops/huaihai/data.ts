@@ -1,7 +1,7 @@
 import type { OpsCampaign, OpsCityDef, OpsRoadDef, OpsArmyDef, DecisionNodeDef, Difficulty, DifficultyId } from '@aiwar/sim'
 
 const cities: OpsCityDef[] = [
-  { id: 'xuzhou', name: '徐州', x: 300, y: 300, owner: 'kmt', kind: 'capital', terrain: 'city', garrison: 30000, wall: 2.6, grain: 60 },
+  { id: 'xuzhou', name: '徐州', x: 300, y: 300, owner: 'kmt', kind: 'capital', terrain: 'city', garrison: 15000, wall: 2.4, grain: 60 },
   { id: 'jiawang', name: '贾汪', x: 360, y: 250, owner: 'kmt', kind: 'city', terrain: 'mountain', garrison: 22000, wall: 1.4, grain: 20 },
   { id: 'taierzhuang', name: '台儿庄', x: 410, y: 210, owner: 'kmt', kind: 'city', terrain: 'river', garrison: 6000, wall: 1.4, grain: 16 },
   { id: 'pizhou', name: '邳县渡口', x: 430, y: 280, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 4000, wall: 1.0, grain: 12 },
@@ -16,7 +16,7 @@ const cities: OpsCityDef[] = [
   { id: 'guzhen', name: '固镇', x: 360, y: 520, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 5000, wall: 1.2, grain: 14 },
   { id: 'bengbu', name: '蚌埠', x: 400, y: 580, owner: 'kmt', kind: 'city', terrain: 'city', garrison: 25000, wall: 2.0, grain: 40 },
   { id: 'yongcheng', name: '永城', x: 180, y: 400, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 5000, wall: 1.2, grain: 14 },
-  { id: 'chenguanzhuang', name: '陈官庄', x: 160, y: 350, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 30000, wall: 1.2, grain: 20 },
+  { id: 'chenguanzhuang', name: '陈官庄', x: 160, y: 350, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.0, grain: 20 },
   { id: 'lincheng', name: '临城', x: 250, y: 210, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.2, grain: 16 },
 ]
 
@@ -189,7 +189,7 @@ export const huaihaiCampaign: OpsCampaign = {
   decisions,
   difficulty,
   balance: {
-    battleIntensity: 0.42,
+    battleIntensity: 0.3,
     ambushMultiplier: 1.5,
     routTroopRatio: 0.55,
     routMorale: 25,
@@ -198,7 +198,9 @@ export const huaihaiCampaign: OpsCampaign = {
     resupplyDays: 3,
     siegeGarrisonLoss: 0.035,
     siegeGrainLoss: 1,
-    desertionPerDay: 0.003,
+    desertionPerDay: 0.0015,
+    attackerLossCap: 0.014,
+    defenderLossCap: 0.03,
   },
   weather: [
     { id: 'clear', label: '晴' },

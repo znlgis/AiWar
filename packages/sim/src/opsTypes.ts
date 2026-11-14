@@ -109,6 +109,10 @@ export interface OpsBalance {
   siegeGarrisonLoss: number
   siegeGrainLoss: number
   desertionPerDay: number
+  /** 单日攻击方损失上限（占兵力比），用于大兵团攻坚 */
+  attackerLossCap?: number
+  /** 单日守方损失上限 */
+  defenderLossCap?: number
 }
 
 export interface OpsCampaignMeta {

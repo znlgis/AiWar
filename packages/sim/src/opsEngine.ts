@@ -402,8 +402,10 @@ export function battleTick(state: OpsState, campaign: OpsCampaign, narrative: Op
     const shareA = atk / (atk + def)
     const shareD = def / (atk + def)
     const intensity = 0.04 * campaign.balance.battleIntensity
-    const atkLoss = clamp(intensity * shareD * 2 * (0.85 + rng('atk') * 0.3), 0.003, 0.12)
-    const defLoss = clamp(intensity * shareA * 2 * (0.85 + rng('def') * 0.3), 0.003, 0.12)
+    const atkCap = campaign.balance.attackerLossCap ?? 0.12
+    const defCap = campaign.balance.defenderLossCap ?? 0.12
+    const atkLoss = clamp(intensity * shareD * 2 * (0.85 + rng('atk') * 0.3), 0.003, atkCap)
+    const defLoss = clamp(intensity * shareA * 2 * (0.85 + rng('def') * 0.3), 0.003, defCap)
     let atkLost = 0
     let defLost = 0
     for (const a of attacker) {
