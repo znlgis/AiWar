@@ -67,4 +67,23 @@ describe('campaign regression (historical routes)', () => {
     if (!['full', 'partial', 'south'].includes(best.endingId)) throw new Error('淮海应能围歼敌军，实际 ' + best.endingId)
     if ((best.parts.find((p: { key: string; value: number }) => p.key === 'jiawang')?.value ?? 0) <= 0) throw new Error('淮海应能触发贾汪战场转向')
   })
+
+  // 难度梯度回归：历史难度平均分必须高于地狱难度，防止分数倒挂
+  it('难度梯度单调（史实 > 地狱）', () => {
+    const cases = [
+      ['sidu', siduCampaign, siduRules],
+      ['chibi', chibiCampaign, chibiRules],
+      ['feishui', feishuiCampaign, feishuiRules],
+    ] as const
+    for (const [name, campaign, rules] of cases) {
+      const avg = (diff: 'hist' | 'hell') => {
+        const rows = [11, 12, 13, 14, 15].map(seed => run(campaign, rules, diff, seed))
+        return rows.reduce((s, r) => s + r.total, 0) / rows.length
+      }
+      const hist = avg('hist')
+      const hell = avg('hell')
+      console.log('difficulty', name, 'hist', Math.round(hist), 'hell', Math.round(hell), 'gap', Math.round(hist - hell))
+      if (hist <= hell) throw new Error(name + ' 难度倒挂：史实 ' + Math.round(hist) + ' ≤ 地狱 ' + Math.round(hell))
+    }
+  })
 })
