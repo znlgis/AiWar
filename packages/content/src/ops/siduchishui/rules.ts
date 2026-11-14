@@ -52,13 +52,13 @@ const rules: OpsRules = {
     const near = (city: string, n: number) => armiesOf(state, state.playerFaction).some(a => a.pos.kind === 'city' && distance(state, a.pos.city, city) <= n)
     const day = state.tick
     if (!has('d1') && day >= 2) return 'd1'
-    if (!has('d2') && (at('tucheng') || near('tucheng', 1) || day >= 7)) return 'd2'
-    if (!has('d3') && (at('zhaxi') || day >= 17)) return 'd3'
-    if (!has('d4') && (at('loushanguan') || at('zunyi') || day >= 25)) return 'd4'
-    if (!has('d5') && (near('yaxi', 1) || at('maotai') || day >= 33)) return 'd5'
-    if (!has('d6') && (near('lubanchang', 1) || day >= 40)) return 'd6'
-    if (!has('d7') && (at('wujiang') || near('guiyang', 1) || day >= 50)) return 'd7'
-    if (!has('d8') && (near('kunming', 2) || at('jiaopingdu') || day >= 68)) return 'd8'
+    if (!has('d2') && has('d1') && (at('tucheng') || day >= 9)) return 'd2'
+    if (!has('d3') && has('d2') && (at('zhaxi') || at('taipingdu') || day >= 20)) return 'd3'
+    if (!has('d4') && has('d3') && (at('loushanguan') || (at('zunyi') && (state.flags.d2 === 2 || day >= 18)) || day >= 28)) return 'd4'
+    if (!has('d5') && has('d4') && (near('yaxi', 1) || at('maotai') || day >= 33)) return 'd5'
+    if (!has('d6') && has('d5') && (near('lubanchang', 1) || day >= 40)) return 'd6'
+    if (!has('d7') && has('d6') && (at('wujiang') || near('guiyang', 1) || day >= 50)) return 'd7'
+    if (!has('d8') && has('d7') && (near('kunming', 2) || at('jiaopingdu') || day >= 68)) return 'd8'
     return null
   },
 
@@ -213,19 +213,20 @@ const rules: OpsRules = {
   aiTick(state, campaign, narrative): void {
     const feintActive = (state.flags.feint ?? 0) === 1 && (state.vars.feintDays ?? 0) < 6
     if (state.flags.feint === 1) state.vars.feintDays = (state.vars.feintDays ?? 0) + 1
+    // 敌军协同差、情报滞后：每 6 天才刷新一次追击目标，且不敢贴得太近
     for (const id of ENEMY_MAIN) {
       const enemy = army(state, id)
       if (!enemy || enemy.removed) continue
-      if (state.tick % 3 !== 0) continue
-      // 川军主力守住赤水河渡口，不轻易离开
-      if ((id === 'kmt-chuan-2' || id === 'kmt-chuan-1') && !feintActive) {
-        if (id === 'kmt-chuan-2' && enemy.pos.kind === 'city' && enemy.pos.city !== 'chishuicheng' && enemy.pos.city !== 'gulin') continue
-      }
-      const target = feintActive && (id === 'kmt-yunnan' || id === 'kmt-guizhou') ? 'guiyang' : nearestPlayerCity(state, enemy.pos.kind === 'city' ? enemy.pos.city : enemy.pos.from)
-      if (!target) continue
-      if (enemy.pos.kind === 'city' && enemy.pos.city === target) continue
-      if (enemy.pos.kind === 'city' && distance(state, enemy.pos.city, target) <= 1) continue
-      moveToward(state, enemy, target)
+      if (state.tick % 6 !== 0) continue
+      if ((id === 'kmt-chuan-1' || id === 'kmt-chuan-2') && !feintActive) continue
+      const fromCity = enemy.pos.kind === 'city' ? enemy.pos.city : enemy.pos.from
+      if (!fromCity) continue
+      const next = feintActive && (id === 'kmt-yunnan' || id === 'kmt-guizhou')
+        ? 'guiyang'
+        : nearestPlayerCity(state, fromCity)
+      if (!next) continue
+      if (enemy.pos.kind === 'city' && (next === enemy.pos.city || distance(state, enemy.pos.city, next) <= 1)) continue
+      moveToward(state, enemy, next)
     }
     // 敌军逼近报告
     if (state.tick % 5 === 0) {

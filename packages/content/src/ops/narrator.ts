@@ -20,6 +20,10 @@ const BASE: Corpus = {
     '{place}伏击得手，敌军先头被击溃。',
     '{place}一战，敌军措手不及，向后溃退。',
   ],
+  'battle.annihilated': [
+    '{place}一战，被围之敌建制瓦解，不再成军。',
+    '{place}方向敌军被围歼，战场上已无成建制抵抗。',
+  ],
   'battle.draw': [
     '{place}战斗相持，双方均未得手。',
   ],

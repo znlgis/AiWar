@@ -111,6 +111,7 @@ const rules: OpsRules = {
         if (optionId === 'opt1') {
           state.vars.eat7 = 1
           orderPlayer(state, 'nianzhuang', ['pl-e', 'pl-e2'])
+          orderPlayer(state, 'shuangduiji', ['pl-c'])
           addReport(state, 'court', '总前委', '先吃第7兵团，再打黄维。', 'high', 0, true)
         } else if (optionId === 'opt2') {
           state.vars.twoFronts = 1
@@ -120,7 +121,8 @@ const rules: OpsRules = {
       case 'd7':
         if (optionId === 'opt1') {
           state.vars.expectSouthwest = 1
-          orderPlayer(state, 'chenguanzhuang', ['pl-e', 'pl-e2', 'pl-l'])
+          orderPlayer(state, 'xuzhou', ['pl-e', 'pl-e2'])
+          orderPlayer(state, 'chenguanzhuang', ['pl-l'])
           addReport(state, 'court', '总前委', '判断徐州集团向西南撤退，主力向永城、陈官庄方向截击。', 'high', 0, true)
         } else if (optionId === 'opt2') {
           state.vars.expectSoutheast = 1
@@ -154,7 +156,7 @@ const rules: OpsRules = {
       moveToward(state, twelve, 'shuangduiji')
     }
     const two = army(state, 'kmt-2')
-    if (two && !two.removed && state.tick > 12 && !state.vars.jiawang) {
+    if (two && !two.removed && state.tick > 12 && !state.vars.jiawang && state.tick < 20) {
       moveToward(state, two, 'daxujia')
     }
     // 包围判定
@@ -192,16 +194,27 @@ const rules: OpsRules = {
         addReport(state, 'court', '后方', '支前运力紧张，前线粮食与弹药吃紧。', 'mid', 1, true)
       }
     }
-    // 歼灭判定：被围且兵力锐减的兵团视为覆灭
-    for (const id of ['kmt-7', 'kmt-12', 'kmt-13']) {
+    // 双堆集围歼：第12兵团被围后，中野持续压缩；玩家不再改令时保持围困
+    const twelve = army(state, 'kmt-12')
+    if (twelve && !twelve.removed && state.vars.eat7 === 1 && state.tick % 8 === 0) {
+      orderPlayer(state, 'shuangduiji', ['pl-c', 'pl-l'])
+    }
+    if (twelve && !twelve.removed && twelve.pos.kind === 'city' && twelve.pos.city === 'shuangduiji') {
+      const ring = ['pl-c', 'pl-l'].map(id => army(state, id)).filter((a): a is NonNullable<typeof a> => !!a && !a.removed && a.pos.kind === 'city' && a.pos.city === 'shuangduiji')
+      if (ring.length > 0) damageArmy(twelve, 0.012, state)
+    }
+    // 歼灭判定：兵力低于建制两成三，或残部不足五千，即视为建制瓦解（被围歼）
+    const labels: Record<string, string> = { 'kmt-7': '第7兵团', 'kmt-12': '第12兵团', 'kmt-13': '徐州集团', 'kmt-2': '第2兵团', 'kmt-16': '第16兵团' }
+    for (const id of Object.keys(labels)) {
       const a = army(state, id)
       if (!a || a.removed) continue
-      if (a.troops < 6000) {
-        a.removed = true
-        const label = id === 'kmt-7' ? '第7兵团' : id === 'kmt-12' ? '第12兵团' : '徐州集团'
-        const where = a.pos.kind === 'city' ? a.pos.city : undefined
-        addReport(state, 'border', cityName(state, where), label + '已被歼灭。', 'high', 0, true)
-      }
+      const base = campaign.armies.find(c => c.id === id)?.troops ?? a.troops
+      if (a.troops > Math.max(5000, Math.round(base * 0.22))) continue
+      a.removed = true
+      a.troops = 0
+      const where = a.pos.kind === 'city' ? a.pos.city : undefined
+      addReport(state, 'border', cityName(state, where), labels[id] + '被围歼，建制瓦解。', 'high', 0, true)
+      state.log.push('第' + (state.tick + 1) + '日：' + cityName(state, where) + '，' + labels[id] + '被围歼')
     }
     // 第7兵团被围后继续压缩
     const seven = army(state, 'kmt-7')
@@ -221,7 +234,7 @@ const rules: OpsRules = {
     const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
     if (killed >= 3) { end(state, 'full'); return }
     if (state.cities.bengbu.owner === 'pla' && state.cities.xuzhou.owner === 'pla') { end(state, 'south'); return }
-    if (playerTroops(state) < 210000) { end(state, 'heavy'); return }
+    if (playerTroops(state) < 175000) { end(state, 'heavy'); return }
     if (state.tick >= 66) end(state, killed >= 2 ? 'partial' : 'stall')
   },
 
@@ -266,7 +279,7 @@ const rules: OpsRules = {
   },
 
   powerMod(state, campaign, armyId, side): number {
-    if (armyId.startsWith('pl-')) return side === 'attacker' ? 1.6 : 1.25
+    if (armyId.startsWith('pl-')) return side === 'attacker' ? 2.3 : 1.55
     return 1
   },
 

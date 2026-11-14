@@ -164,6 +164,8 @@ export interface OpsState {
   lastTokenTick: number
   flags: Record<string, number>
   vars: Record<string, number>
+  /** 战斗中暂存的玩家行军命令（战后恢复） */
+  orderMemory?: Record<string, { task: OpsTask; target?: string; sinceTick: number; arrived: boolean; waitTicks: number }>
   weather: string
   weatherNext: number
   casualties: Record<string, number>

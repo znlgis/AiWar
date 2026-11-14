@@ -338,6 +338,7 @@ export function intelTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
 
 export function detectBattles(state: OpsState, campaign: OpsCampaign, narrative: OpsNarrative): void {
   for (const city of Object.values(state.cities)) {
+    if ((state.vars['cool:' + city.id] ?? 0) > state.tick) continue
     const present = armiesAt(state, city.id)
     if (present.length === 0) continue
     const playerSide = present.filter(a => a.faction === state.playerFaction)
@@ -362,8 +363,15 @@ export function detectBattles(state: OpsState, campaign: OpsCampaign, narrative:
     }
     for (const id of battle.attackerIds.concat(battle.defenderIds)) {
       const army = state.armies[id]
-      if (army) army.inBattle = battle.id
+      if (army) {
+        army.inBattle = battle.id
+        if (army.order) {
+          state.orderMemory = state.orderMemory ?? {}
+          state.orderMemory[id] = { ...army.order }
+        }
+      }
     }
+    state.vars['cool:' + city.id] = state.tick + 2
     state.battles.push(battle)
     say(state, narrative, 'border', city.name, battle.ambush ? 'battle.ambush_start' : 'battle.start', { place: city.name }, 'high', 0, true)
     state.log.push('第' + (state.tick + 1) + '日：' + city.name + '接战')
@@ -393,9 +401,9 @@ export function battleTick(state: OpsState, campaign: OpsCampaign, narrative: Op
     }
     const shareA = atk / (atk + def)
     const shareD = def / (atk + def)
-    const intensity = 0.05 * campaign.balance.battleIntensity
-    const atkLoss = clamp(intensity * shareD * 2 * (0.85 + rng('atk') * 0.3), 0.004, 0.16)
-    const defLoss = clamp(intensity * shareA * 2 * (0.85 + rng('def') * 0.3), 0.004, 0.16)
+    const intensity = 0.04 * campaign.balance.battleIntensity
+    const atkLoss = clamp(intensity * shareD * 2 * (0.85 + rng('atk') * 0.3), 0.003, 0.12)
+    const defLoss = clamp(intensity * shareA * 2 * (0.85 + rng('def') * 0.3), 0.003, 0.12)
     let atkLost = 0
     let defLost = 0
     for (const a of attacker) {
@@ -412,7 +420,7 @@ export function battleTick(state: OpsState, campaign: OpsCampaign, narrative: Op
     const defNow = totalTroops(state, battle.defenderIds)
     const atkBroken = atkNow < battle.attackerInitial * campaign.balance.routTroopRatio || attacker.every(a => a.morale < campaign.balance.routMorale)
     const defBroken = defNow < battle.defenderInitial * campaign.balance.routTroopRatio || defender.every(a => a.morale < campaign.balance.routMorale)
-    if (battle.days >= 8 || atkBroken || defBroken) {
+    if (battle.days >= 6 || atkBroken || defBroken) {
       const winner = atkBroken && !defBroken ? 'defender' : defBroken && !atkBroken ? 'attacker' : 'draw'
       resolveBattle(state, campaign, narrative, rules, battle, winner)
     }
@@ -439,19 +447,44 @@ function resolveBattle(state: OpsState, campaign: OpsCampaign, narrative: OpsNar
     const army = state.armies[id]
     if (!army) continue
     damageArmy(army, 0.16, state)
-    const fromCity = army.pos.kind === 'city' ? army.pos.city : army.pos.from
+    const pos = army.pos
+    const fromCity = pos.kind === 'city' ? pos.city : pos.from
+    // 合围歼灭：守方在本方城池战败，且毗邻城池多数已被敌方控制时，视为被围歼
+    const neighbors = pos.kind === 'city'
+      ? Object.values(state.cities).filter(c => c.id !== pos.city && shortestRoute(state.roads, pos.city, c.id).length <= 1)
+      : []
+    const hostileNeighbors = neighbors.filter(c => c.owner !== army.faction && c.owner !== 'neutral').length
+    const encircled = army.pos.kind === 'city' && city && city.owner === army.faction && neighbors.length > 0 && hostileNeighbors >= Math.ceil(neighbors.length * 0.6)
+    if (encircled || army.troops < 1500) {
+      const lost = army.troops
+      state.casualties[army.faction] = (state.casualties[army.faction] ?? 0) + lost
+      army.removed = true
+      army.troops = 0
+      army.inBattle = null
+      say(state, narrative, 'border', place, 'battle.annihilated', { place }, 'high', 0, true)
+      continue
+    }
     const haven = rearCity(state, army.faction, city?.id ?? fromCity, battle.place)
     army.pos = { kind: 'city', city: haven ?? fromCity }
     army.route = []
     army.order = null
     army.inBattle = null
     army.morale = clamp(army.morale - 15, 5, 100)
-    if (army.troops < 500) { army.removed = true; army.troops = 0 }
   }
   for (const id of battle.attackerIds.concat(battle.defenderIds)) {
     const army = state.armies[id]
-    if (army && !army.removed) { army.inBattle = null; army.order = null }
+    if (!army || army.removed) continue
+    army.inBattle = null
+    // 玩家部队战后恢复原行军命令（避免被反复开战锁死在原地）
+    if (army.faction === state.playerFaction) {
+      const saved = state.orderMemory?.[id]
+      if (saved) army.order = { ...saved }
+    } else {
+      army.order = null
+    }
+    if (state.orderMemory) delete state.orderMemory[id]
   }
+  if (battle.city) state.vars['cool:' + battle.city] = state.tick + 3
   state.battles = state.battles.filter(b => b.id !== battle.id)
   const winnerName = winner === 'draw' ? '' : (winner === 'attacker' ? battle.attackerIds[0] : battle.defenderIds[0])
   const winnerFaction = winnerName ? state.armies[winnerName]?.faction : undefined
