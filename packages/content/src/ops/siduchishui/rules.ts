@@ -39,7 +39,7 @@ const rules: OpsRules = {
   id: 'siduchishui-1935',
 
   opening(state, campaign, narrative): void {
-    addReport(state, 'court', '军前', narrative.line('opening.situation', {}, 0) || '', 'mid', 0, true)
+    addReport(state, 'court', '军前', '遵义会议后，全军约三万人，四面皆有敌军。北渡长江是既定方向，但川军已在沿江布防。', 'mid', 0, true)
     const enemyCount = ENEMY_MAIN.reduce((s, id) => s + (state.armies[id]?.troops ?? 0), 0)
     addReport(state, 'scout', '赤水河', '侦察汇总：川军一部在土城、赤水城方向，中央军两个纵队在鲁班场、乌江方向，滇军一部在镇雄，湘军一部在松坎。敌军总计约' + Math.round(enemyCount / 10000) + '万。', 'mid', 1, true)
     addReport(state, 'note', '遵义', '全军完成整编待发。遵义会议已确定北渡长江的方向。', 'high', 0, false)
@@ -83,7 +83,7 @@ const rules: OpsRules = {
           for (const a of armiesOf(state, state.playerFaction)) { a.morale = clamp(a.morale - 4, 5, 100); a.fatigue = clamp(a.fatigue + 8, 0, 100) }
           const chuan = army(state, 'kmt-chuan-1')
           if (chuan) chuan.troops += 4500
-          addReport(state, 'deserter', '土城', '俘虏供称：当面川军不止两三个团，后续仍在增援。', 'mid', 2, true)
+          addReport(state, 'deserter', '土城', '俘虏供称：当面川军不止四个团，后续仍在增援。', 'mid', 2, true)
         } else if (optionId === 'opt2') {
           state.flags.d2 = 2
           orderPlayer(state, 'yuanhou')
@@ -214,9 +214,9 @@ const rules: OpsRules = {
   aiTick(state, campaign, narrative): void {
     const feintActive = (state.flags.feint ?? 0) === 1 && (state.vars.feintDays ?? 0) < 6
     if (state.flags.feint === 1) state.vars.feintDays = (state.vars.feintDays ?? 0) + 1
-    // 敌军协同差、情报滞后：按难度刷新追击目标（史实 8 天 / 普通 6 天 / 困难 4 天 / 地狱 3 天）
+    // 敌军协同差、情报滞后：按难度刷新追击目标（史实 8 天 / 普通 7 天 / 困难 4 天 / 地狱 3 天）
     const diff = campaign.difficulty[state.difficulty]
-    const cadence = diff.id === 'hell' ? 3 : diff.id === 'hard' ? 4 : diff.id === 'normal' ? 6 : 8
+    const cadence = diff.id === 'hell' ? 3 : diff.id === 'hard' ? 4 : diff.id === 'normal' ? 7 : 8
     for (const id of ENEMY_MAIN) {
       const enemy = army(state, id)
       if (!enemy || enemy.removed) continue

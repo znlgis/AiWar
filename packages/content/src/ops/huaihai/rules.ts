@@ -31,6 +31,11 @@ function encircle(state: OpsState, targetId: string, by: string[]): boolean {
   }
   return present >= 2
 }
+function stageCount(state: OpsState): number {
+  const gone = (id: string) => { const a = state.armies[id]; return !a || a.removed }
+  return [gone('kmt-7'), gone('kmt-12'), ['kmt-2', 'kmt-13', 'kmt-16'].every(gone)].filter(Boolean).length
+}
+
 function enemyKilled(state: OpsState, id: string): boolean {
   const a = state.armies[id]
   return !!a && (a.removed || a.troops < 4000)
@@ -41,7 +46,7 @@ const rules: OpsRules = {
 
   opening(state, campaign, narrative): void {
     addReport(state, 'court', '总前委', narrative.line('opening.situation', {}, 0) || '', 'high', 0, true)
-    addReport(state, 'scout', '徐州', '情报：徐州剿总以第 2、13、16 兵团守徐州，第 7 兵团在新安镇，第 12 兵团由蒙城北上。', 'mid', 1, true)
+    addReport(state, 'scout', '徐州', '情报：第 2、13、16 兵团守徐州，第 7 兵团在新安镇，第 12 兵团由蒙城北上。', 'mid', 1, true)
     addReport(state, 'note', '总前委', '战役决心：先打第 7 兵团，同时切断徐蚌线。', 'high', 0, false)
     orderPlayer(state, 'xinan')
   },
@@ -112,7 +117,7 @@ const rules: OpsRules = {
           state.vars.eat7 = 1
           orderPlayer(state, 'nianzhuang', ['pl-e', 'pl-e2'])
           orderPlayer(state, 'shuangduiji', ['pl-c'])
-          addReport(state, 'court', '总前委', '先吃第7兵团，再打黄维。', 'high', 0, true)
+          addReport(state, 'court', '总前委', '先吃第7兵团，再打第12兵团。', 'high', 0, true)
         } else if (optionId === 'opt2') {
           state.vars.twoFronts = 1
           addReport(state, 'court', '总前委', '分兵同时围歼两处，风险很大。', 'mid', 0, true)
@@ -267,7 +272,8 @@ const rules: OpsRules = {
       if (ring.length > 0) damageArmy(twelve, 0.012, state)
     }
     // 歼灭判定：兵力低于建制两成三，或残部不足五千，即视为建制瓦解（被围歼）
-    const labels: Record<string, string> = { 'kmt-7': '第7兵团', 'kmt-12': '第12兵团', 'kmt-13': '徐州集团', 'kmt-2': '第2兵团', 'kmt-16': '第16兵团' }
+    // 第13兵团只是陈官庄被围三个兵团之一，不能当作「徐州集团」整体
+    const labels: Record<string, string> = { 'kmt-7': '第7兵团', 'kmt-12': '第12兵团', 'kmt-13': '第13兵团', 'kmt-2': '第2兵团', 'kmt-16': '第16兵团' }
     for (const id of Object.keys(labels)) {
       const a = army(state, id)
       if (!a || a.removed) continue
@@ -325,12 +331,16 @@ const rules: OpsRules = {
 
   checkEnd(state, campaign): void {
     if (state.over) return
-    const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
-    const mainKilled = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
-    if (mainKilled >= 3) { end(state, 'full'); return }
+    // 三个阶段各自对应一个重兵集团：第7兵团、第12兵团、陈官庄（第2/13/16兵团）
+    const gone = (id: string) => { const a = state.armies[id]; return !a || a.removed }
+    const sevenDown = gone('kmt-7')
+    const twelveDown = gone('kmt-12')
+    const xuzhouDown = ['kmt-2', 'kmt-13', 'kmt-16'].every(gone)
+    const stages = [sevenDown, twelveDown, xuzhouDown].filter(Boolean).length
+    if (stages >= 3) { end(state, 'full'); return }
     if (state.cities.bengbu.owner === 'pla' && state.cities.xuzhou.owner === 'pla') { end(state, 'south'); return }
     if (playerTroops(state) < 130000) { end(state, 'heavy'); return }
-    if (state.tick >= 66) end(state, mainKilled >= 2 ? 'partial' : 'stall')
+    if (state.tick >= 66) end(state, stages >= 2 ? 'partial' : 'stall')
   },
 
   score(state, campaign): OpsScore {
@@ -346,6 +356,8 @@ const rules: OpsRules = {
       { key: 'loss', label: '自身伤亡', value: Math.round(clamp(1 - hurt / 0.35, 0, 1) * 15), max: 15, note: '约 ' + Math.round(hurt * 14.5) + ' 万' },
       { key: 'logistics', label: '支前后勤', value: Math.round((logistics / 100) * 10), max: 10, note: logistics > 60 ? '运力充足' : '运力紧张' },
       { key: 'jiawang', label: '战场转向', value: jw, max: 6, note: state.vars.jiawang ? '贾汪转向成功' : '未实现' },
+      // 三阶段全部完成是史实主线，给一个明确的分项：原评分天花板 78 低于 S 线 80，打完也拿不到 S
+      { key: 'stages', label: '三阶段完成', value: stageCount(state) >= 3 ? 8 : stageCount(state) * 2, max: 8, note: '已完成 ' + stageCount(state) + '/3 阶段' },
       { key: 'time', label: '战役节奏', value: state.tick < 60 ? 5 : 2, max: 5, note: '历 ' + state.tick + ' 日' },
     ]
     const raw = parts.reduce((s, p) => s + p.value, 0)
@@ -384,10 +396,11 @@ const rules: OpsRules = {
   },
 
   hud(state, campaign): { pressureText: string; objectiveText: string; stageText: string } {
-    const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
+    const gone = (id: string) => { const a = state.armies[id]; return !a || a.removed }
+    const killed = [gone('kmt-7'), gone('kmt-12'), ['kmt-2', 'kmt-13', 'kmt-16'].every(gone)].filter(Boolean).length
     const stage = state.tick < 17 ? '第一阶段' : state.tick < 40 ? '第二阶段' : '第三阶段'
     return {
-      pressureText: '歼敌 ' + killed + '/3 集团',
+      pressureText: '已解决 ' + killed + '/3 阶段',
       objectiveText: state.cities.xuzhou.owner === 'pla' ? '徐州已克' : state.cities.suxian.owner === 'pla' ? '徐蚌线已断' : '徐州未克',
       stageText: stage,
     }

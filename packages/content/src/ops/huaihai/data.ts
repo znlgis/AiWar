@@ -111,11 +111,11 @@ const decisions: DecisionNodeDef[] = [
     defaultOption: 'opt1',
   },
   {
-    id: 'd6', title: '先打谁：吃一个、挟一个、看一个', prompt: '黄维兵团北援。是围歼黄维，还是先解决第7兵团？',
+    id: 'd6', title: '先打谁：吃一个、挟一个、看一个', prompt: '第12兵团自南线北援。是先围歼该兵团，还是先解决第7兵团？',
     options: [
-      { id: 'opt1', label: '先解决第7兵团，再打黄维', desc: '集中兵力各个击破。', hint: '顺序问题。', recommended: true },
+      { id: 'opt1', label: '先解决第7兵团，再打第12兵团', desc: '集中兵力各个击破。', hint: '顺序问题。', recommended: true },
       { id: 'opt2', label: '分兵同时围歼两处', desc: '两线作战，风险大。', hint: '兵力紧张。' },
-      { id: 'opt3', label: '先打黄维，回头再收拾第7兵团', desc: '南线威胁更急。', hint: '可能两头落空。' },
+      { id: 'opt3', label: '先打第12兵团，回头再收拾第7兵团', desc: '南线威胁更急。', hint: '可能两头落空。' },
       { id: 'opt4', label: '放开一路，集中打一处', desc: '稳妥但战果有限。', hint: '保守。' },
     ],
     defaultOption: 'opt1',
@@ -143,10 +143,10 @@ const decisions: DecisionNodeDef[] = [
 ]
 
 const difficulty: Record<DifficultyId, Difficulty> = {
-  hist: { id: 'hist', name: '史实', label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 1, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1, defaultQuality: 0.1 },
+  hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
+  normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
 }
 
 export const huaihaiCampaign: OpsCampaign = {
@@ -156,22 +156,22 @@ export const huaihaiCampaign: OpsCampaign = {
     subtitle: '1948.11—1949.1 · 华东、中原野战军',
     era: '解放战争',
     premise: '六十万对八十万，在徐州周围切块围歼，三个阶段吃掉三个重兵集团。',
-    dateLabel: '民国三十七年冬 · 徐州剿总',
+    dateLabel: '1948 年冬 · 徐州战场',
     startLabel: '第一日',
     playerRole: '战役总前委（职务视角，不具名）',
     background:
-      '1948 年冬，国民党军徐州剿总在陇海、津浦两线摆开十字形部署。解放军以华东野战军、中原野战军及地方部队约六十万，采取"切块、连续围歼"的打法：先围歼第 7 兵团，再围歼第 12 兵团，最后解决徐州撤退集团。支前后勤、战场转向与政治攻势，是这场战役区别于一般会战的关键。',
-    objective: '逐次围歼敌军重兵集团，力争全胜；同时保存自己、维持后勤与民工运力。',
+      '1948 年冬，国民党军徐州方面在陇海、津浦两线摆开十字形部署。解放军以华东野战军、中原野战军及地方部队约六十万，采取"切块、连续围歼"的打法：先围歼第 7 兵团，再围歼第 12 兵团，最后解决徐州撤退集团。支前后勤、战场转向与政治攻势，是这场战役区别于一般会战的关键。',
+    objective: '逐次解决敌军重兵集团，力争全胜；同时保存自己、维持后勤与民工运力。',
     infoTip: '战报与情报都有误差。敌军会收缩、突围或起义——你的判断决定包围圈能否合拢。',
     dossier: [
       { title: '战前态势', text: '徐州为陇海、津浦交点。国民党军 4 个兵团加绥靖区约 60 万，沿铁路摆开；解放军华野约 36—40 万、中野约 12—15 万，加军区部队约 60 万。' },
-      { title: '第一阶段：碾庄圩', text: '11 月 6 日战役发起，第 7 兵团西撤。华野追击并于碾庄圩地区将其包围，11 月 22 日全歼，兵团司令官阵亡。' },
+      { title: '第一阶段：碾庄圩', text: '11 月 6 日战役发起，第 7 兵团西撤。华野追击并于碾庄圩地区将其包围，11 月 22 日将其全歼，兵团部失去抵抗。' },
       { title: '贾汪转向', text: '11 月 8 日，第 3 绥靖区在贾汪、台儿庄一带脱离原建制，徐州东北门户洞开。' },
       { title: '第二阶段：双堆集', text: '11 月 25 日，第 12 兵团被围于双堆集。中原野战军艰苦阻击，12 月 15 日全歼该兵团。' },
       { title: '宿县与徐蚌线', text: '11 月中旬攻占宿县，切断徐州与蚌埠的联系，使徐州集团成为孤岛。' },
-      { title: '第三阶段：陈官庄', text: '12 月 1 日徐州集团弃城南撤，被追堵于陈官庄地区。围而不打、政治攻势二十余日，1949 年 1 月 6 日总攻，1 月 10 日结束。' },
+      { title: '第三阶段：陈官庄', text: '12 月 1 日徐州集团弃城南撤，被追堵于陈官庄地区。12 月 6 日第 16 兵团自行突围被歼；围而不打、政治攻势二十余日，1949 年 1 月 6 日总攻，1 月 10 日结束。' },
       { title: '支前后勤', text: '据公开党史军史资料，支前民工约 543 万人次，大小车 88 万余辆，粮食约 9.6 亿斤。后勤是淮海战役的另一条战线。' },
-      { title: '数字口径', text: '解放军约 60 万；国民党军战前约 60 万、累计投入约 80 万。歼敌 55.5 万，解放军伤亡约 13.4 万。数字各说不一，游戏内做写意处理。' },
+      { title: '数字口径', text: '解放军约 60 万；国民党军战前约 60 万、累计投入约 80 万。战果与损失各说不一，游戏内只作分档处理，不给出精确数字。' },
     ],
     disclaimer: '本作以公开党史军史资料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；指挥机构以职务代称，不出现具体人物；数字存在统计口径差异，不代表严格战史。',
   },

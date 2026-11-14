@@ -20,7 +20,7 @@ const cities: OpsCityDef[] = [
   { id: 'wujiang', name: '乌江渡口', x: 520, y: 452, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 2000, wall: 1.2, grain: 10 },
   { id: 'guiyang', name: '贵阳', x: 560, y: 512, owner: 'kmt', kind: 'capital', terrain: 'city', garrison: 6000, wall: 2.0, grain: 40 },
   { id: 'kunming', name: '昆明', x: 330, y: 620, owner: 'yunnan', kind: 'capital', terrain: 'plain', garrison: 8000, wall: 2.0, grain: 50 },
-  { id: 'jiaopingdu', name: '皎平渡', x: 252, y: 650, owner: 'yunnan', kind: 'port', terrain: 'river', garrison: 700, wall: 0.8, grain: 6 },
+  { id: 'jiaopingdu', name: '皎平渡', x: 250, y: 470, owner: 'yunnan', kind: 'port', terrain: 'river', garrison: 700, wall: 0.8, grain: 6 },
 ]
 
 const roads: OpsRoadDef[] = [
@@ -49,8 +49,8 @@ const roads: OpsRoadDef[] = [
   { id: 'r23', from: 'yaxi', to: 'wujiang', days: 3, kind: 'road' },
   { id: 'r24', from: 'wujiang', to: 'guiyang', days: 2, kind: 'road' },
   { id: 'r25', from: 'bijie', to: 'guiyang', days: 5, kind: 'road' },
-  { id: 'r26', from: 'guiyang', to: 'kunming', days: 12, kind: 'road', name: '滇黔道' },
-  { id: 'r27', from: 'kunming', to: 'jiaopingdu', days: 4, kind: 'mountain', name: '禄劝北道' },
+  { id: 'r26', from: 'guiyang', to: 'kunming', days: 10, kind: 'road', name: '滇黔道' },
+  { id: 'r27', from: 'kunming', to: 'jiaopingdu', days: 3, kind: 'mountain', name: '禄劝北道' },
   { id: 'r28', from: 'songkan', to: 'tucheng', days: 3, kind: 'mountain' },
   { id: 'r29', from: 'chishuicheng', to: 'gulin', days: 2, kind: 'mountain' },
 ]
@@ -60,13 +60,14 @@ const armies: OpsArmyDef[] = [
   { id: 'red-1', name: '红一军团', faction: 'red', commander: '红一军团', troops: 9000, type: 'infantry', morale: 70, fatigue: 16, training: 1.2, foodDays: 16, city: 'zunyi', stealth: 0.45 },
   { id: 'red-3', name: '红三军团', faction: 'red', commander: '红三军团', troops: 8000, type: 'infantry', morale: 68, fatigue: 16, training: 1.18, foodDays: 16, city: 'zunyi', stealth: 0.45 },
   { id: 'red-9', name: '红九军团', faction: 'red', commander: '红九军团', troops: 4000, type: 'infantry', morale: 60, fatigue: 16, training: 1.1, foodDays: 10, city: 'tongzi', stealth: 0.5 },
-  { id: 'kmt-chuan-1', name: '川军郭勋祺部', faction: 'sichuan', commander: '川军郭勋祺部', troops: 14000, type: 'mixed', morale: 70, fatigue: 10, training: 1.0, foodDays: 20, city: 'tucheng' },
-  { id: 'kmt-chuan-2', name: '川军潘文华部', faction: 'sichuan', commander: '川军潘文华部', troops: 20000, type: 'infantry', morale: 68, fatigue: 8, training: 0.95, foodDays: 24, city: 'chishuicheng' },
-  { id: 'kmt-central-1', name: '中央军周浑元纵队', faction: 'kmt', commander: '中央军周浑元纵队', troops: 16000, type: 'mixed', morale: 72, fatigue: 12, training: 1.05, foodDays: 20, city: 'lubanchang' },
-  { id: 'kmt-central-2', name: '中央军吴奇伟纵队', faction: 'kmt', commander: '中央军吴奇伟纵队', troops: 15000, type: 'mixed', morale: 70, fatigue: 10, training: 1.05, foodDays: 20, city: 'wujiang' },
-  { id: 'kmt-guizhou', name: '黔军王家烈部', faction: 'kmt', commander: '黔军', troops: 9000, type: 'infantry', morale: 58, fatigue: 8, training: 0.85, foodDays: 18, city: 'yaxi' },
-  { id: 'kmt-yunnan', name: '滇军孙渡纵队', faction: 'yunnan', commander: '滇军孙渡纵队', troops: 13000, type: 'mixed', morale: 70, fatigue: 8, training: 1.0, foodDays: 20, city: 'zhenxiong' },
-  { id: 'kmt-hunan', name: '湘军何键部', faction: 'hunan', commander: '湘军何键部', troops: 10000, type: 'infantry', morale: 66, fatigue: 8, training: 1.0, foodDays: 18, city: 'songkan' },
+  // 国民党军一线兵力约 20.2 万：中央军 8 万、川军 7.2 万、黔军 2.5 万、滇军 1.5 万、湘军 1 万（与档案「一线约二十一万」对齐）
+  { id: 'kmt-chuan-1', name: '川军郭勋祺部', faction: 'sichuan', commander: '川军郭勋祺部', troops: 12000, type: 'mixed', morale: 70, fatigue: 10, training: 1.0, foodDays: 20, city: 'tucheng' },
+  { id: 'kmt-chuan-2', name: '川军潘文华部', faction: 'sichuan', commander: '川军潘文华部', troops: 60000, type: 'infantry', morale: 68, fatigue: 8, training: 0.95, foodDays: 24, city: 'chishuicheng' },
+  { id: 'kmt-central-1', name: '中央军周浑元纵队', faction: 'kmt', commander: '中央军周浑元纵队', troops: 40000, type: 'mixed', morale: 72, fatigue: 12, training: 1.05, foodDays: 20, city: 'lubanchang' },
+  { id: 'kmt-central-2', name: '中央军吴奇伟纵队', faction: 'kmt', commander: '中央军吴奇伟纵队', troops: 40000, type: 'mixed', morale: 70, fatigue: 10, training: 1.05, foodDays: 20, city: 'wujiang' },
+  { id: 'kmt-guizhou', name: '黔军王家烈部', faction: 'kmt', commander: '黔军', troops: 25000, type: 'infantry', morale: 58, fatigue: 8, training: 0.85, foodDays: 18, city: 'yaxi' },
+  { id: 'kmt-yunnan', name: '滇军孙渡纵队', faction: 'yunnan', commander: '滇军孙渡纵队', troops: 15000, type: 'mixed', morale: 70, fatigue: 8, training: 1.0, foodDays: 20, city: 'zhenxiong' },
+  { id: 'kmt-hunan', name: '湘军刘建绪部', faction: 'hunan', commander: '湘军刘建绪部', troops: 10000, type: 'infantry', morale: 66, fatigue: 8, training: 1.0, foodDays: 18, city: 'songkan' },
 ]
 
 const decisions = [
@@ -81,9 +82,9 @@ const decisions = [
     defaultOption: 'opt1',
   },
   {
-    id: 'd2', title: '土城：加码还是收手', prompt: '土城以东青杠坡方向接战。俘虏称敌军约两三个团。打，还是撤？',
+    id: 'd2', title: '土城：加码还是收手', prompt: '土城以东青杠坡方向接战。俘虏称敌军约四个团，实为六个团，兵力约为判断的一倍半。打，还是撤？',
     options: [
-      { id: 'opt1', label: '投入预备队，按原计划求歼', desc: '若敌情判断正确，可歼其一部；若判断错误，主力会被粘住。', hint: '情报可信度：中。' },
+      { id: 'opt1', label: '投入预备队，按原计划求歼', desc: '若敌情判断正确，可歼其一部；若判断错误，主力会被粘住。', hint: '情报可信度：低——实际兵力约为判断的一倍半。' },
       { id: 'opt2', label: '立即撤出战斗，西渡赤水', desc: '放弃北渡长江的捷径，保存主力。', hint: '承认失败比坚持失败更划算。', recommended: true },
       { id: 'opt3', label: '停止进攻，就地防御等后续', desc: '等待更多情报，但川军增援也在路上。', hint: '时间不在我方。' },
       { id: 'opt4', label: '转向东南，放弃北渡', desc: '另寻过江方向，但绕行会暴露意图。', hint: '战略目标推迟。' },
@@ -159,7 +160,7 @@ export const siduCampaign: OpsCampaign = {
     subtitle: '中央红军长征 · 1935 年 1—5 月',
     era: '长征',
     premise: '三万对四十万，在川黔滇边反复穿插，用四次渡河撕开合围。',
-    dateLabel: '民国二十四年 · 遵义会议后',
+    dateLabel: '1935 年 1 月 · 遵义会议后',
     startLabel: '第一日',
     playerRole: '中央红军指挥层（军委决策席位，不具名）',
     background:
@@ -193,10 +194,10 @@ export const siduCampaign: OpsCampaign = {
   armies,
   decisions,
   difficulty: {
-    hist: { id: 'hist', name: '史实', label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 1, defaultQuality: 0.9 },
-    normal: { id: 'normal', name: '普通', label: '情报有噪声，敌军会追堵', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1, defaultQuality: 0.65 },
-    hard: { id: 'hard', name: '困难', label: '假报增多，敌军会预判', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1, defaultQuality: 0.35 },
-    hell: { id: 'hell', name: '地狱', label: '情报含混，多路合围', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1, defaultQuality: 0.1 },
+    hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
+    normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，敌军会追堵', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+    hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，敌军会预判', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+    hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，多路合围', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
   },
   balance: {
     battleIntensity: 0.6,

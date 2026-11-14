@@ -3,15 +3,16 @@ import type { OpsCampaign, OpsCityDef, OpsRoadDef, OpsArmyDef, DecisionNodeDef, 
 const cities: OpsCityDef[] = [
   { id: 'jiangling', name: '江陵', x: 300, y: 520, owner: 'cao', kind: 'city', terrain: 'river', garrison: 12000, wall: 2.0, grain: 40 },
   { id: 'dangyang', name: '当阳', x: 360, y: 470, owner: 'cao', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.2, grain: 16 },
-  { id: 'xiakou', name: '夏口', x: 470, y: 440, owner: 'cao', kind: 'port', terrain: 'river', garrison: 10000, wall: 1.6, grain: 30 },
+  { id: 'xiakou', name: '夏口', x: 470, y: 440, owner: 'shu', kind: 'port', terrain: 'river', garrison: 3000, wall: 1.6, grain: 30 },
   { id: 'fankou', name: '樊口', x: 500, y: 470, owner: 'sun', kind: 'port', terrain: 'river', garrison: 4000, wall: 1.2, grain: 14 },
-  { id: 'chibi', name: '赤壁', x: 560, y: 430, owner: 'sun', kind: 'port', terrain: 'river', garrison: 3000, wall: 1.2, grain: 12 },
-  { id: 'wulin', name: '乌林', x: 600, y: 400, owner: 'cao', kind: 'port', terrain: 'river', garrison: 20000, wall: 1.2, grain: 30 },
-  { id: 'huarong', name: '华容道', x: 520, y: 360, owner: 'cao', kind: 'fort', terrain: 'mountain', garrison: 2000, wall: 1.0, grain: 6 },
-  { id: 'nanjun', name: '南郡', x: 330, y: 560, owner: 'cao', kind: 'city', terrain: 'river', garrison: 14000, wall: 1.8, grain: 30 },
+  { id: 'chibi', name: '赤壁', x: 570, y: 435, owner: 'sun', kind: 'port', terrain: 'river', garrison: 3000, wall: 1.2, grain: 12 },
+  { id: 'wulin', name: '乌林', x: 520, y: 390, owner: 'cao', kind: 'port', terrain: 'river', garrison: 20000, wall: 1.2, grain: 30 },
+  // 华容道是沼泽中的撤退路线，不是可守据点：按道路节点（kind='road'）建模、不设守军。
+  // OpsCityDef.kind 未收录 'road'，这里只在本战役内做一次断言，不改动 @aiwar/sim 的类型定义。
+  { id: 'huarong', name: '华容道', x: 520, y: 360, owner: 'cao', kind: 'road', terrain: 'mountain', garrison: 0, wall: 1.0, grain: 6 },
   { id: 'xiangyang', name: '襄阳', x: 280, y: 330, owner: 'cao', kind: 'city', terrain: 'plain', garrison: 15000, wall: 2.0, grain: 40 },
   { id: 'chaisang', name: '柴桑', x: 620, y: 500, owner: 'sun', kind: 'city', terrain: 'river', garrison: 8000, wall: 1.6, grain: 24 },
-  { id: 'jianye', name: '建业', x: 720, y: 540, owner: 'sun', kind: 'capital', terrain: 'river', garrison: 12000, wall: 2.0, grain: 40 },
+  { id: 'jianye', name: '秣陵', x: 720, y: 540, owner: 'sun', kind: 'capital', terrain: 'river', garrison: 12000, wall: 2.0, grain: 40 },
   { id: 'hefei', name: '合肥', x: 620, y: 300, owner: 'cao', kind: 'city', terrain: 'plain', garrison: 10000, wall: 1.6, grain: 26 },
   { id: 'yiling', name: '夷陵', x: 400, y: 560, owner: 'cao', kind: 'city', terrain: 'river', garrison: 6000, wall: 1.2, grain: 16 },
 ]
@@ -23,8 +24,7 @@ const roads: OpsRoadDef[] = [
   { id: 'c4', from: 'fankou', to: 'chibi', days: 1, kind: 'river', name: '长江' },
   { id: 'c5', from: 'chibi', to: 'wulin', days: 1, kind: 'river', name: '长江' },
   { id: 'c6', from: 'wulin', to: 'huarong', days: 1, kind: 'mountain' },
-  { id: 'c7', from: 'huarong', to: 'nanjun', days: 2, kind: 'road' },
-  { id: 'c8', from: 'nanjun', to: 'jiangling', days: 1, kind: 'river' },
+  { id: 'c7', from: 'huarong', to: 'jiangling', days: 2, kind: 'road' },
   { id: 'c9', from: 'xiangyang', to: 'dangyang', days: 3, kind: 'road' },
   { id: 'c10', from: 'xiakou', to: 'chaisang', days: 3, kind: 'river' },
   { id: 'c11', from: 'chaisang', to: 'jianye', days: 3, kind: 'river' },
@@ -37,9 +37,8 @@ const roads: OpsRoadDef[] = [
 
 const armies: OpsArmyDef[] = [
   { id: 'sun-main', name: '周瑜部', faction: 'sun', commander: '周瑜', troops: 30000, type: 'mixed', morale: 80, fatigue: 8, training: 1.1, foodDays: 20, city: 'chaisang', stealth: 0.3, naval: true },
-  { id: 'sun-navy', name: '江东水军', faction: 'sun', commander: '水军都督', troops: 20000, type: 'fleet', morale: 82, fatigue: 6, training: 1.15, foodDays: 20, city: 'chaisang', stealth: 0.35, naval: true },
-  { id: 'shu-main', name: '刘备军', faction: 'shu', commander: '刘备', troops: 20000, type: 'infantry', morale: 72, fatigue: 14, training: 1.0, foodDays: 16, city: 'fankou', stealth: 0.3 },
-  { id: 'shu-navy', name: '荆州水军', faction: 'shu', commander: '关羽', troops: 8000, type: 'fleet', morale: 74, fatigue: 8, training: 1.05, foodDays: 18, city: 'fankou', stealth: 0.35, naval: true },
+  { id: 'shu-main', name: '刘备军', faction: 'shu', commander: '刘备', troops: 15000, type: 'infantry', morale: 72, fatigue: 14, training: 1.0, foodDays: 16, city: 'fankou', stealth: 0.3 },
+  { id: 'shu-navy', name: '荆州水军', faction: 'shu', commander: '关羽', troops: 5000, type: 'fleet', morale: 74, fatigue: 8, training: 1.05, foodDays: 18, city: 'fankou', stealth: 0.35, naval: true },
   { id: 'cao-main', name: '曹军主力', faction: 'cao', commander: '丞相府', troops: 120000, type: 'mixed', morale: 68, fatigue: 20, training: 1.0, foodDays: 18, city: 'wulin', stealth: 0.1 },
   { id: 'cao-navy', name: '荆州降军水师', faction: 'cao', commander: '荆州水军', troops: 60000, type: 'fleet', morale: 55, fatigue: 18, training: 0.85, foodDays: 16, city: 'wulin', stealth: 0.1, naval: true },
   { id: 'cao-rear', name: '曹军后队', faction: 'cao', commander: '后军都督', troops: 50000, type: 'infantry', morale: 66, fatigue: 16, training: 0.95, foodDays: 18, city: 'xiangyang', stealth: 0.1 },
@@ -64,7 +63,7 @@ const decisions: DecisionNodeDef[] = [
       { id: 'opt1', label: '主战，联刘抗曹', desc: '以长江天险与水军之利对抗。', hint: '历史选择。', recommended: true },
       { id: 'opt2', label: '主降，保全江东', desc: '避免战火，但失去独立。', hint: '投降结局。' },
       { id: 'opt3', label: '观望，先看刘备实力', desc: '拖延，等局势明朗。', hint: '可能错失战机。' },
-      { id: 'opt4', label: '迁都武昌，持久抵抗', desc: '放弃江东腹地，拉长战线。', hint: '消耗战。' },
+      { id: 'opt4', label: '迁治鄂县，持久抵抗', desc: '放弃江东腹地，拉长战线。', hint: '消耗战。' },
     ],
     defaultOption: 'opt1',
   },
@@ -99,10 +98,10 @@ const decisions: DecisionNodeDef[] = [
     defaultOption: 'opt1',
   },
   {
-    id: 'd6', title: '追击与取南郡', prompt: '曹军大溃。是追击曹军主力，还是抢先取南郡、江陵？',
+    id: 'd6', title: '追击与取南郡', prompt: '曹军大溃。是追击曹军主力，还是抢先取江陵（南郡）？',
     options: [
-      { id: 'opt1', label: '追击曹军主力', desc: '扩大战果，扩大战果。', hint: '历史选择。', recommended: true },
-      { id: 'opt2', label: '抢取南郡、江陵', desc: '夺取荆州要地。', hint: '战略收益。' },
+      { id: 'opt1', label: '追击曹军主力', desc: '扩大战果，追歼曹军后队。', hint: '历史选择。', recommended: true },
+      { id: 'opt2', label: '抢取江陵（南郡）', desc: '夺取荆州要地。', hint: '战略收益。' },
       { id: 'opt3', label: '分兵两路', desc: '追击与取城并重。', hint: '兵力分散。' },
       { id: 'opt4', label: '收兵回防', desc: '保存实力。', hint: '保守。' },
     ],
@@ -121,10 +120,10 @@ const decisions: DecisionNodeDef[] = [
 ]
 
 const difficulty: Record<DifficultyId, Difficulty> = {
-  hist: { id: 'hist', name: '史实', label: '情报较准，曹军轻敌', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 1, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', label: '情报有噪声，曹军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', label: '假报增多，曹军有防备', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', label: '情报含混，风向难测', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1, defaultQuality: 0.1 },
+  hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，曹军轻敌', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
+  normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，曹军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，曹军有防备', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，风向难测', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
 }
 
 export const chibiCampaign: OpsCampaign = {
@@ -143,13 +142,14 @@ export const chibiCampaign: OpsCampaign = {
     infoTip: '曹军号称八十万，实兵约二十余万；情报误差很大。风向与水战是胜负手。',
     dossier: [
       { title: '战前态势', text: '建安十三年，曹操南征荆州。刘表病卒，刘琮举州投降。刘备败于当阳，退往夏口，与孙权结盟。' },
+      { title: '夏口归属', text: '夏口时在江夏太守刘琦手中，刘备败退后与刘琦合兵于此，曹军并未控制夏口。' },
       { title: '兵力对比', text: '曹操号称八十万，实有北方兵约十五六万、荆州降军约七八万。孙刘联军约五万：周瑜部三万，刘备部约两万。' },
       { title: '赤壁初战', text: '联军西进，与曹军相遇于赤壁。曹军小战不利，退驻乌林，战船相连，军中疾疫流行。' },
       { title: '诈降火攻', text: '黄盖诈降，以火船突袭曹军连环船阵。东南风起，火势蔓延，曹军水师大溃。' },
       { title: '华容撤退', text: '曹操烧余船退走，经华容道泥泞难行，损失惨重，退回江陵。' },
       { title: '数字与分歧', text: '曹操兵力、赤壁地望、火攻月份均有不同说法。游戏内做写意处理。' },
     ],
-    disclaimer: '本作以《三国志》及裴注等公开史料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；决策者以职务代称，不出现具体人物；数字与日期存在考据分歧，不代表严格战史。',
+    disclaimer: '本作以《三国志》及裴注等公开史料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；指挥层以职务为主，关键人物保留姓名以便对照史书；数字与日期存在考据分歧，不代表严格战史。',
   },
   playerFaction: 'sun',
   enemyFactions: ['cao'],

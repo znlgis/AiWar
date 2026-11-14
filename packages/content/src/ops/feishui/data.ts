@@ -4,13 +4,13 @@ const cities: OpsCityDef[] = [
   { id: 'changan', name: '长安', x: 180, y: 180, owner: 'qin', kind: 'capital', terrain: 'plain', garrison: 20000, wall: 2.4, grain: 80 },
   { id: 'luoyang', name: '洛阳', x: 320, y: 240, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 12000, wall: 2.0, grain: 50 },
   { id: 'xiangcheng', name: '项城', x: 400, y: 330, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 30000, wall: 1.6, grain: 40 },
-  { id: 'yingkou', name: '颍口', x: 470, y: 390, owner: 'qin', kind: 'port', terrain: 'river', garrison: 8000, wall: 1.2, grain: 20 },
+  { id: 'yingkou', name: '颍口', x: 404, y: 486, owner: 'qin', kind: 'port', terrain: 'river', garrison: 8000, wall: 1.2, grain: 20 },
   { id: 'shouyang', name: '寿阳', x: 520, y: 420, owner: 'jin', kind: 'city', terrain: 'city', garrison: 8000, wall: 1.8, grain: 26 },
-  { id: 'xiashi', name: '硖石', x: 560, y: 380, owner: 'jin', kind: 'fort', terrain: 'mountain', garrison: 5000, wall: 1.6, grain: 12 },
-  { id: 'bagongshan', name: '八公山', x: 540, y: 460, owner: 'jin', kind: 'fort', terrain: 'mountain', garrison: 800, wall: 1.0, grain: 4 },
-  { id: 'dongjindu', name: '东津渡', x: 500, y: 470, owner: 'jin', kind: 'port', terrain: 'river', garrison: 1000, wall: 0.8, grain: 4 },
-  { id: 'luojian', name: '洛涧', x: 450, y: 470, owner: 'qin', kind: 'port', terrain: 'river', garrison: 20000, wall: 1.0, grain: 20 },
-  { id: 'qinggang', name: '青冈', x: 470, y: 520, owner: 'jin', kind: 'city', terrain: 'plain', garrison: 500, wall: 0.8, grain: 6 },
+  { id: 'xiashi', name: '硖石', x: 430, y: 372, owner: 'jin', kind: 'fort', terrain: 'mountain', garrison: 5000, wall: 1.6, grain: 12 },
+  { id: 'bagongshan', name: '八公山', x: 524, y: 350, owner: 'jin', kind: 'fort', terrain: 'mountain', garrison: 800, wall: 1.0, grain: 4 },
+  { id: 'dongjindu', name: '东津渡', x: 588, y: 452, owner: 'jin', kind: 'port', terrain: 'river', garrison: 1000, wall: 0.8, grain: 4 },
+  { id: 'luojian', name: '洛涧', x: 664, y: 468, owner: 'qin', kind: 'port', terrain: 'river', garrison: 20000, wall: 1.0, grain: 20 },
+  { id: 'qinggang', name: '青冈', x: 458, y: 478, owner: 'jin', kind: 'city', terrain: 'plain', garrison: 500, wall: 0.8, grain: 6 },
   { id: 'hefei', name: '合肥', x: 560, y: 550, owner: 'jin', kind: 'city', terrain: 'river', garrison: 6000, wall: 1.8, grain: 30 },
   { id: 'jiankang', name: '建康', x: 700, y: 590, owner: 'jin', kind: 'capital', terrain: 'river', garrison: 15000, wall: 2.2, grain: 60 },
   { id: 'guangling', name: '广陵', x: 680, y: 540, owner: 'jin', kind: 'city', terrain: 'river', garrison: 9000, wall: 1.6, grain: 24 },
@@ -18,7 +18,7 @@ const cities: OpsCityDef[] = [
   { id: 'pengcheng', name: '彭城', x: 560, y: 300, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 15000, wall: 1.6, grain: 24 },
   { id: 'xiangyang', name: '襄阳', x: 330, y: 500, owner: 'qin', kind: 'city', terrain: 'mountain', garrison: 12000, wall: 2.4, grain: 30 },
   { id: 'jiangling', name: '江陵', x: 380, y: 590, owner: 'jin', kind: 'city', terrain: 'river', garrison: 30000, wall: 2.0, grain: 40 },
-  { id: 'yuncheng', name: '郧城', x: 420, y: 560, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 10000, wall: 1.2, grain: 16 },
+  { id: 'yuncheng', name: '郧城', x: 440, y: 528, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 10000, wall: 1.2, grain: 16 },
 ]
 
 const roads: OpsRoadDef[] = [
@@ -45,12 +45,12 @@ const roads: OpsRoadDef[] = [
 ]
 
 const armies: OpsArmyDef[] = [
-  { id: 'jin-bei', name: '北府兵', faction: 'jin', commander: '前锋都督', troops: 50000, type: 'infantry', morale: 80, fatigue: 10, training: 1.2, foodDays: 20, city: 'guangling', stealth: 0.4 },
+  { id: 'jin-bei', name: '北府兵', faction: 'jin', commander: '前锋都督', troops: 45000, type: 'infantry', morale: 80, fatigue: 10, training: 1.2, foodDays: 20, city: 'guangling', stealth: 0.4 },
   { id: 'jin-main', name: '晋军主力', faction: 'jin', commander: '征讨大都督', troops: 30000, type: 'mixed', morale: 75, fatigue: 8, training: 1.1, foodDays: 20, city: 'jiankang', stealth: 0.3 },
-  { id: 'jin-shui', name: '水军', faction: 'jin', commander: '水军都督', troops: 8000, type: 'fleet', morale: 76, fatigue: 6, training: 1.05, foodDays: 18, city: 'guangling', stealth: 0.4 },
+  { id: 'jin-shui', name: '水军', faction: 'jin', commander: '水军都督', troops: 5000, type: 'fleet', morale: 76, fatigue: 6, training: 1.05, foodDays: 18, city: 'guangling', stealth: 0.4 },
   { id: 'jin-west', name: '荆州军', faction: 'jin', commander: '荆州刺史', troops: 40000, type: 'infantry', morale: 72, fatigue: 8, training: 1.0, foodDays: 18, city: 'jiangling', stealth: 0.25 },
-  { id: 'qin-front', name: '秦军前锋', faction: 'qin', commander: '前锋都督', troops: 120000, type: 'mixed', morale: 76, fatigue: 8, training: 1.0, foodDays: 24, city: 'yingkou', stealth: 0.1 },
-  { id: 'qin-main', name: '秦军本营', faction: 'qin', commander: '大秦天王', troops: 150000, type: 'mixed', morale: 74, fatigue: 6, training: 0.95, foodDays: 26, city: 'xiangcheng', stealth: 0.1 },
+  { id: 'qin-front', name: '秦军前锋', faction: 'qin', commander: '前锋都督', troops: 250000, type: 'mixed', morale: 76, fatigue: 8, training: 1.0, foodDays: 24, city: 'yingkou', stealth: 0.1 },
+  { id: 'qin-main', name: '秦军本营', faction: 'qin', commander: '大秦天王', troops: 420000, type: 'mixed', morale: 74, fatigue: 6, training: 0.95, foodDays: 26, city: 'xiangcheng', stealth: 0.1 },
   { id: 'qin-liang', name: '洛涧守军', faction: 'qin', commander: '梁成部', troops: 50000, type: 'infantry', morale: 70, fatigue: 6, training: 0.95, foodDays: 18, city: 'luojian', stealth: 0.15 },
   { id: 'qin-east', name: '东路秦军', faction: 'qin', commander: '幽冀兵', troops: 30000, type: 'infantry', morale: 68, fatigue: 8, training: 0.9, foodDays: 18, city: 'pengcheng', stealth: 0.1 },
   { id: 'qin-west', name: '西线秦军', faction: 'qin', commander: '西线都督', troops: 30000, type: 'mixed', morale: 70, fatigue: 8, training: 0.95, foodDays: 18, city: 'xiangyang', stealth: 0.1 },
@@ -81,7 +81,7 @@ const decisions: DecisionNodeDef[] = [
   {
     id: 'd3', title: '洛涧：主力跟进还是精锐突袭', prompt: '秦军梁成部在洛涧设栅。是否派精锐突袭，主力跟进？',
     options: [
-      { id: 'opt1', label: '派精锐五千夜袭洛涧', desc: '以少击众，若成可破秦军淮河封锁。', hint: '历史选择。', recommended: true },
+      { id: 'opt1', label: '派精锐五千直前渡水，突袭洛涧', desc: '以少击众，若成可破秦军淮河封锁。', hint: '历史选择。', recommended: true },
       { id: 'opt2', label: '主力强攻洛涧', desc: '兵力集中，但伤亡大。', hint: '稳妥。' },
       { id: 'opt3', label: '绕开洛涧，直趋寿阳', desc: '避实就虚，但侧翼暴露。', hint: '风险。' },
       { id: 'opt4', label: '按兵不动，等秦军来攻', desc: '以逸待劳。', hint: '保守。' },
@@ -141,10 +141,10 @@ const decisions: DecisionNodeDef[] = [
 ]
 
 const difficulty: Record<DifficultyId, Difficulty> = {
-  hist: { id: 'hist', name: '史实', label: '情报较准，秦军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 1, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', label: '情报有噪声，秦军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', label: '假报增多，秦军会稳阵', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', label: '情报含混，秦军不轻易退', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1, defaultQuality: 0.1 },
+  hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，秦军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
+  normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，秦军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，秦军会稳阵', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，秦军不轻易退', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
 }
 
 export const feishuiCampaign: OpsCampaign = {
@@ -163,13 +163,13 @@ export const feishuiCampaign: OpsCampaign = {
     infoTip: '秦军号称百万、实兵有限；情报有误差，降将之言真假难辨。兵力不是唯一的胜负手，组织与士气才是。',
     dossier: [
       { title: '战略态势', text: '前秦统一北方，苻坚决意南征。东晋以淮河—汉水—长江为缓冲，谢安主政，谢玄镇广陵练北府兵，桓冲守荆州。' },
-      { title: '兵力对比', text: '前秦号称百万，实发戎卒六十余万、骑二十七万；到一线约二三十万。东晋淮南方向八万，其中北府兵为核心。' },
-      { title: '洛涧之战', text: '刘牢之率五千北府兵强渡洛涧，破秦军梁成部，斩梁成，秦军损失约一万五千，淮河封锁被打破。' },
+      { title: '兵力对比', text: '前秦号称百万，实发戎卒六十余万、骑二十七万；到一线约二三十万。东晋淮南方向八万，其中北府兵为核心；西线荆州军约十万，未参加淝水主战场。凉州、蜀地、幽冀诸军未及参战者不计入盘面。' },
+      { title: '洛涧之战', text: '刘牢之率五千北府兵直前渡水，击破秦军梁成部，斩梁成，秦军损失约一万五千，淮河封锁被打破。' },
       { title: '淝水决战', text: '两军隔淝水对峙。晋军请秦军后撤以便渡河，苻坚、苻融自恃兵多，欲半渡而击，麾兵使退；秦军一退不可复止。' },
       { title: '崩溃与追击', text: '朱序在阵后高呼"秦兵败矣"，晋军八千涉渡，苻融马倒被杀，秦军全线崩溃，晋军追至青冈。' },
-      { title: '数字与分歧', text: '洛涧秦军有五万、二万等不同说法；决战日期有十月、十一月两说；八公山里数亦有分歧。游戏内做写意处理。' },
+      { title: '数字与分歧', text: '洛涧秦军有五万、二万等不同说法；决战日期《通鉴》系于十一月，另有农历十月二十日（公历约 11 月 30 日）一说；八公山里数亦有分歧。游戏内做写意处理。' },
     ],
-    disclaimer: '本作以《晋书》《资治通鉴》等公开史料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；决策者以职务代称，不出现具体人物；数字与日期存在考据分歧，不代表严格战史。',
+    disclaimer: '本作以《晋书》《资治通鉴》等公开史料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；指挥层以职务代称，史料中确需指认的降将、来使保留姓名；数字与日期存在考据分歧，不代表严格战史。',
   },
   playerFaction: 'jin',
   enemyFactions: ['qin'],

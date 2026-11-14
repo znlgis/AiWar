@@ -21,7 +21,7 @@ const rules: OpsRules = {
   id: 'feishui-383',
 
   opening(state, campaign, narrative): void {
-    addReport(state, 'court', '建康', narrative.line('opening.situation', {}, 0) || '', 'high', 0, true)
+    addReport(state, 'court', '建康', '太元八年秋，前秦举国南征，前锋已抵颍口；晋军淮南方向八万，北府兵为骨干，寿阳告急。', 'high', 0, true)
     addReport(state, 'scout', '淮河', '情报：秦军前锋进抵颍口，后续大军分批南下；淮河沿线已有秦军活动。', 'mid', 1, true)
     addReport(state, 'note', '广陵', '北府兵已集结，水军待命。朝廷命征讨大都督率军西进。', 'high', 0, false)
   },
@@ -63,7 +63,7 @@ const rules: OpsRules = {
           state.vars.raidLuo = 1
           const bei = army(state, 'jin-bei')
           if (bei) moveToward(state, bei, 'luojian')
-          addReport(state, 'court', '广陵', '五千精锐夜袭洛涧。', 'high', 0, true)
+          addReport(state, 'court', '广陵', '五千精锐直前渡水，突袭洛涧。', 'high', 0, true)
         } else if (optionId === 'opt2') {
           for (const a of armiesOf(state, state.playerFaction)) moveToward(state, a, 'luojian')
           addReport(state, 'court', '军前', '主力强攻洛涧。', 'mid', 0, true)
@@ -116,7 +116,7 @@ const rules: OpsRules = {
     if (state.tick % 3 === 0 && state.tick <= 24) {
       const main = army(state, 'qin-main')
       const front = army(state, 'qin-front')
-      if (main && front && front.troops < 260000) {
+      if (main && front && front.troops < 300000) {
         const move = Math.min(15000, main.troops - 60000)
         if (move > 0) { main.troops -= move; front.troops += move }
       }
@@ -125,11 +125,14 @@ const rules: OpsRules = {
     const front = army(state, 'qin-front')
     if (front && !front.removed && state.tick > 4) moveToward(state, front, 'shouyang')
     const liang = army(state, 'qin-liang')
-    if (liang && !liang.removed && state.tick > 6) moveToward(state, liang, 'dongjindu')
+    // 梁成部据洛涧而守（史实：梁成屯洛涧，刘牢之直前渡水击破之），被破后才退往东津渡
+    if (liang && !liang.removed && state.vars.luojianWin && state.tick > 6) moveToward(state, liang, 'dongjindu')
     // 洛涧之战判定
     if (state.vars.raidLuo && !state.vars.luojianWin) {
       const bei = army(state, 'jin-bei')
-      if (bei && liang && liang.pos.kind === 'city' && bei.pos.kind === 'city' && dist(state, bei.pos.city, liang.pos.city) === 0) {
+      // 兵临洛涧即可发起突袭：原先要求「与梁成部同驻一城」，
+      // 但部队在抵达同城前就会先被判定接战/被别的命令改派，条件实际永远不成立（64 种组合里 0 命中）。
+      if (bei && liang && liang.pos.kind === 'city' && bei.pos.kind === 'city' && dist(state, bei.pos.city, liang.pos.city) <= 1) {
         state.vars.luojianWin = 1
         damageArmy(liang, 0.35, state)
         liang.morale = clamp(liang.morale - 15, 5, 100)

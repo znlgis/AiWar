@@ -26,7 +26,7 @@ const rules: OpsRules = {
   id: 'chibi-208',
 
   opening(state, campaign, narrative): void {
-    addReport(state, 'court', '柴桑', narrative.line('opening.situation', {}, 0) || '', 'high', 0, true)
+    addReport(state, 'court', '柴桑', '建安十三年冬，曹操挟荆州新降之众顺江东下；孙刘结盟于柴桑，联军约五万，北岸曹军号称八十万。', 'high', 0, true)
     addReport(state, 'scout', '乌林', '情报：曹军水陆并进，战船相连，营寨绵延；军中已有疾疫。号称八十万，实数不详。', 'mid', 1, true)
     addReport(state, 'envoy', '柴桑', '鲁肃、诸葛亮往来奔走，孙刘联盟已成。周瑜部水军待发。', 'high', 0, false)
   },
@@ -100,8 +100,8 @@ const rules: OpsRules = {
           addReport(state, 'court', '乌林', '联军追击曹军，直指华容道。', 'high', 0, true)
         } else if (optionId === 'opt2') {
           state.flags.takeNan = 1
-          for (const a of alliedArmies(state)) moveToward(state, a, 'nanjun')
-          addReport(state, 'court', '南郡', '联军转向南郡、江陵。', 'high', 0, true)
+          for (const a of alliedArmies(state)) moveToward(state, a, 'jiangling')
+          addReport(state, 'court', '江陵', '联军转向江陵（南郡）。', 'high', 0, true)
         }
         break
       case 'd7':
@@ -126,7 +126,7 @@ const rules: OpsRules = {
       const shift = Math.min(8000, rear?.troops ?? 0)
       if (rear && shift > 0) { rear.troops -= shift; cao.troops += shift }
     }
-    // 曹军前锋向西压迫
+    // 曹军前锋自北岸乌林沿江向东南压迫，试探南岸赤壁（乌林在赤壁西北，江段西南—东北流向）
     if (cao && !cao.removed && state.tick > 8 && state.tick < 20) {
       if (cao.pos.kind === 'city' && cao.pos.city === 'wulin') moveToward(state, cao, 'chibi')
     }
