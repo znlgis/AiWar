@@ -55,8 +55,8 @@ const rules: OpsRules = {
     if (!has('d4') && (day >= 12 || state.cities.jiawang.besieged)) return 'd4'
     if (!has('d5') && (day >= 15 || state.cities.suxian.besieged)) return 'd5'
     if (!has('d6') && (day >= 20 || state.cities.shuangduiji.besieged)) return 'd6'
-    if (!has('d7') && (state.cities.xuzhou.owner === 'pla' || day >= 30)) return 'd7'
-    if (!has('d8') && (day >= 40 || state.vars.encircledChen === 1)) return 'd8'
+    if (!has('d7') && (state.vars.xuzhouRetreat || day >= 30)) return 'd7'
+    if (!has('d8') && (state.vars.encircledChen === 1 || day >= 46)) return 'd8'
     return null
   },
 
@@ -121,12 +121,20 @@ const rules: OpsRules = {
       case 'd7':
         if (optionId === 'opt1') {
           state.vars.expectSouthwest = 1
-          orderPlayer(state, 'xuzhou', ['pl-e', 'pl-e2'])
-          orderPlayer(state, 'chenguanzhuang', ['pl-l'])
+          orderPlayer(state, 'chenguanzhuang', ['pl-e', 'pl-e2', 'pl-e2', 'pl-c', 'pl-l'])
           addReport(state, 'court', '总前委', '判断徐州集团向西南撤退，主力向永城、陈官庄方向截击。', 'high', 0, true)
+          state.vars.pursueSouthwest = 1
         } else if (optionId === 'opt2') {
           state.vars.expectSoutheast = 1
+          orderPlayer(state, 'guzhen', ['pl-e', 'pl-e2'])
           addReport(state, 'court', '总前委', '判断徐州集团向东南撤退，主力向固镇方向追击。', 'mid', 0, true)
+        } else if (optionId === 'opt3') {
+          state.vars.expectSouthwest = 1
+          orderPlayer(state, 'chenguanzhuang', ['pl-e', 'pl-e2'])
+          orderPlayer(state, 'guzhen', ['pl-c'])
+          addReport(state, 'court', '总前委', '分兵两路堵截，兵力有所分散。', 'mid', 0, true)
+        } else {
+          addReport(state, 'court', '总前委', '不强求包围，仅追歼后尾。', 'mid', 0, true)
         }
         break
       case 'd8':
@@ -136,6 +144,13 @@ const rules: OpsRules = {
         } else if (optionId === 'opt2') {
           state.vars.generalAssault = 1
           addReport(state, 'court', '陈官庄', '立即总攻陈官庄。', 'high', 0, true)
+        } else if (optionId === 'opt3') {
+          state.vars.generalAssault = 1
+          state.vars.feintExit = 1
+          addReport(state, 'court', '陈官庄', '围三缺一，诱敌突围，在运动中歼敌。', 'high', 0, true)
+        } else {
+          state.vars.siegeNotAssault = 1
+          addReport(state, 'court', '陈官庄', '长期围困，等其自溃。', 'mid', 0, true)
         }
         break
       default:
@@ -167,12 +182,30 @@ const rules: OpsRules = {
         addReport(state, 'border', cityName(state, seven.pos.city), '第7兵团被包围。', 'high', 0, true)
       }
     }
-    const chen = army(state, 'kmt-13')
-    if (chen && !chen.removed && state.tick > 40 && state.cities.xuzhou.owner !== 'kmt') {
-      if (state.vars.encircledChen !== 1) {
+    // 徐州集团弃城南撤：第7兵团覆灭后，三个兵团经永城向陈官庄方向撤退（与史实一致）
+    const sevenDown = !seven || seven.removed
+    if (sevenDown && !state.vars.xuzhouRetreat && state.tick >= 26) {
+      state.vars.xuzhouRetreat = state.tick
+      for (const id of ['kmt-2', 'kmt-13', 'kmt-16']) {
+        const a = army(state, id)
+        if (!a || a.removed) continue
+        moveToward(state, a, 'yongcheng')
+      }
+      addReport(state, 'scout', '徐州', '徐州集团放弃徐州，向西南方向撤退。', 'mid', 1, true)
+    }
+    if (state.vars.xuzhouRetreat) {
+      for (const id of ['kmt-2', 'kmt-13', 'kmt-16']) {
+        const a = army(state, id)
+        if (!a || a.removed) continue
+        if (a.pos.kind === 'city' && (a.pos.city === 'yongcheng' || a.pos.city === 'chenguanzhuang')) continue
+        moveToward(state, a, 'chenguanzhuang')
+      }
+      // 到达陈官庄地域即构成被围（前提：解放军主力在南线或已追至）
+      const chen = army(state, 'kmt-13')
+      const plaNear = armiesOf(state, state.playerFaction).some(p => p.pos.kind === 'city' && p.pos.city && dist(state, p.pos.city, 'chenguanzhuang') <= 2)
+      if (chen && !chen.removed && chen.pos.kind === 'city' && chen.pos.city === 'chenguanzhuang' && plaNear && state.vars.encircledChen !== 1) {
         state.vars.encircledChen = 1
-        const chenCity = chen.pos.kind === 'city' ? chen.pos.city : undefined
-        addReport(state, 'border', cityName(state, chenCity), '徐州撤退集团被追堵。', 'high', 0, true)
+        addReport(state, 'border', '陈官庄', '徐州撤退集团被合围于陈官庄地区。', 'high', 0, true)
       }
     }
     void narrative
@@ -221,9 +254,27 @@ const rules: OpsRules = {
     if (seven && !seven.removed && state.vars.encircled7 === 1) {
       damageArmy(seven, 0.02, state)
     }
-    if ((state.cities.chenguanzhuang.owner === 'pla') && state.vars.generalAssault === 1) {
-      const chen = army(state, 'kmt-13')
-      if (chen && !chen.removed) damageArmy(chen, 0.03, state)
+    // 陈官庄被围集团：围而不打靠政治攻势瓦解，总攻更快但自身有损耗
+    if (state.vars.encircledChen === 1) {
+      for (const id of ['kmt-2', 'kmt-13', 'kmt-16']) {
+        const a = army(state, id)
+        if (!a || a.removed) continue
+        if (a.pos.kind !== 'city' || a.pos.city !== 'chenguanzhuang') continue
+        if (state.vars.generalAssault === 1) {
+          damageArmy(a, 0.06, state)
+          a.morale = clamp(a.morale - 3, 5, 100)
+        } else if (state.vars.siegeNotAssault === 1) {
+          damageArmy(a, 0.024, state)
+          a.morale = clamp(a.morale - 1.2, 5, 100)
+        } else {
+          damageArmy(a, 0.008, state)
+        }
+      }
+      if (state.vars.generalAssault === 1) {
+        for (const p of armiesOf(state, state.playerFaction)) {
+          if (p.pos.kind === 'city' && p.pos.city === 'chenguanzhuang') damageArmy(p, 0.004, state)
+        }
+      }
     }
     void campaign
     void narrative
@@ -234,7 +285,7 @@ const rules: OpsRules = {
     const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
     if (killed >= 3) { end(state, 'full'); return }
     if (state.cities.bengbu.owner === 'pla' && state.cities.xuzhou.owner === 'pla') { end(state, 'south'); return }
-    if (playerTroops(state) < 175000) { end(state, 'heavy'); return }
+    if (playerTroops(state) < 130000) { end(state, 'heavy'); return }
     if (state.tick >= 66) end(state, killed >= 2 ? 'partial' : 'stall')
   },
 

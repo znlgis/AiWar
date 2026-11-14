@@ -537,6 +537,17 @@ export function siegeTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
       if (city.besieged) city.besieged = false
       continue
     }
+    // 无守备的城池：进入即接管（弃城 / 守军已撤）
+    if (city.garrison < 300 && hostile.every(a => a.faction === state.playerFaction)) {
+      city.owner = state.playerFaction
+      city.garrison = 0
+      city.besieged = false
+      say(state, narrative, 'border', city.name, 'siege.fall', { city: city.name, side: '我军' }, 'high', 1, true)
+      state.log.push('第' + (state.tick + 1) + '日：' + city.name + '易手')
+      state.citiesTaken.push(city.id)
+      rules.onCityCaptured?.(state, campaign, city, state.playerFaction, narrative)
+      continue
+    }
     const assaulting = hostile.filter(a => a.order?.task === 'assault' || a.order?.task === 'strike')
     if (assaulting.length === 0) continue
     const attackerTroops = assaulting.reduce((sum, a) => sum + a.troops, 0)
