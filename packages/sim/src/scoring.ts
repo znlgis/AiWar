@@ -1,9 +1,9 @@
 import type { Campaign, GameState, Score, ScorePart } from './types.js'
 
 const ENDINGS: Record<string, { title: string; text: string }> = {
-  grand: { title: '桂陵大捷', text: '魏军回师途中遭伏，主力大溃。邯郸之围遂解，齐国威震诸侯。此局近乎史实，却胜在你自己手里。' },
-  bitter: { title: '惨胜', text: '邯郸已陷，你以魏军主力为代价扳回一局。赵国元气大伤，齐国赢得的是时间与威名。' },
-  relief: { title: '解围', text: '魏军回师，邯郸得全。伏击未成，但"攻其所必救"的目的已经达到。' },
+  grand: { title: '桂陵大捷', text: '魏军回师途中遭伏，主力大溃。邯郸虽已于此前陷落，赵终得复其故都——齐国威震诸侯。此局近乎史实，却胜在你自己手里。' },
+  bitter: { title: '惨胜', text: '邯郸已陷，你以魏军主力为代价扳回一局。赵国元气大伤，齐国赢得的是时间与威名——这也是史书里那半个结局。' },
+  relief: { title: '解围', text: '魏军回师，邯郸城破在即；救赵之名已成，存亡之实未卜。"攻其所必救"的目的，已经达到。' },
   daliang: { title: '大梁城下', text: '齐军攻破大梁，魏国震动。结局出乎史册，却合乎兵理——只是回师之军尚未真正被消灭。' },
   conquest: { title: '乘胜取城', text: '战后齐军席卷魏东，城邑易手。战果之外，你选择了扩张。' },
   rout: { title: '齐军大溃', text: '主力溃散，辎重尽失。围魏救赵成了纸上谈兵。' },
@@ -68,6 +68,8 @@ export function finalize(state: GameState, campaign: Campaign): Score {
     facts: {
       qiLost,
       weiLost,
+      playerLost: qiLost,
+      enemyLost: weiLost,
       zhaoSurvived: zhaoSaved,
       citiesTaken: state.citiesTaken.map(id => state.cities[id]?.name ?? id),
       days: state.tick,

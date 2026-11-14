@@ -15,7 +15,8 @@ export interface OpsCityDef {
   x: number
   y: number
   owner: FactionId
-  kind: 'capital' | 'city' | 'fort' | 'port'
+  /** road：只有通道意义、不设守军的节点（如华容道这类行军路线） */
+  kind: 'capital' | 'city' | 'fort' | 'port' | 'road'
   terrain?: OpsTerrain
   garrison: number
   wall: number
@@ -74,6 +75,8 @@ export interface OpsArmyState {
   removed: boolean
   stealth: number
   naval: boolean
+  /** 最近一次行进推进的 tick：一天只推进一次，避免主循环调用两次 moveArmies 把路程压缩一半 */
+  lastMoveTick?: number
 }
 
 export interface OpsOrder {

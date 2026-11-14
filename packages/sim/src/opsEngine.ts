@@ -291,8 +291,18 @@ export function moveArmies(state: OpsState, campaign: OpsCampaign): void {
     const next = army.route[0]
     if (!next) { army.order.arrived = true; continue }
     const road = roadBetween(state.roads, here, next)
-    if (!road) { army.route = []; army.order = null; continue }
-    if (road.kind === 'water' && !army.naval) { army.order = null; army.route = []; continue }
+    if (!road) {
+      army.route = []
+      army.order = null
+      addReport(state, 'court', state.cities[here]?.name ?? '军前', army.name + '找不到通往目标的道路，军令已废。', 'high', 1, true)
+      continue
+    }
+    if (road.kind === 'water' && !army.naval) {
+      army.order = null
+      army.route = []
+      addReport(state, 'court', state.cities[here]?.name ?? '军前', army.name + '无舟楫，不能渡水，军令已废。', 'high', 1, true)
+      continue
+    }
     army.pos = { kind: 'road', road: road.id, from: here, to: next, progress: 0 }
     army.route = army.route.slice(1)
     army.fatigue = clamp(army.fatigue + 2, 0, 100)
@@ -318,9 +328,15 @@ export function intelTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
       if (a.pos.city === enemy.pos.city) return true
       return shortestRoute(state.roads, a.pos.city, enemy.pos.city).length <= 1
     })
-    const chance = near ? 0.85 : 0.42
+    const diff = campaign.difficulty[state.difficulty]
+    const scouting = (state.vars.scouting ?? 0) > 0
+    const chance = clamp((near ? 0.82 : 0.36) * (diff.scoutEfficiency ?? 1) * (scouting ? 1.25 : 1), 0.05, 0.97)
     if (rng('intel') < chance) {
-      const band = enemy.troops > 200000 ? '数十万' : enemy.troops > 80000 ? '十余万' : enemy.troops > 30000 ? '数万' : '万余'
+      const noise = 1 + (rng('band', 7) * 2 - 1) * (diff.strengthError ?? 0.3) * 0.6
+      const shown = Math.max(200, enemy.troops * noise)
+      // 档位分细：原来只有四档，七路敌军全读成「万余」，玩家无法判断该打哪一路
+      const band = shown > 300000 ? '三十万以上' : shown > 150000 ? '十五至三十万' : shown > 80000 ? '八至十五万'
+        : shown > 30000 ? '三至八万' : shown > 10000 ? '一万至三万' : '不满一万'
       state.traces.push({
         armyId: enemy.id, faction: enemy.faction as never, place,
         city: enemyPos.kind === 'city' ? enemyPos.city : undefined,
@@ -328,7 +344,19 @@ export function intelTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
         seenTick: state.tick, band: band, confidence: near ? 'high' : 'mid',
       })
       if (state.tick % 2 === 0) {
-        say(state, narrative, 'scout', place, 'intel.sighting', { place, band }, near ? 'high' : 'mid', 1)
+        say(state, narrative, 'scout', place, 'intel.sighting', { place, band }, near ? 'high' : 'mid', diff.intelDelay ?? 1)
+      }
+    }
+    // 假情报：难度越高，越可能收到一队根本不在那里的敌军
+    if ((diff.falseReportPerTenDays ?? 0) > 0 && rng('falsereport') < (diff.falseReportPerTenDays ?? 0) / 10) {
+      const pool = Object.values(state.cities).filter(c => c.owner !== state.playerFaction)
+      const spot = pool[Math.floor(rng('falsespot') * pool.length)]
+      if (spot) {
+        state.traces.push({
+          armyId: 'false-' + state.tick, faction: 'unknown' as never, place: spot.name,
+          city: spot.id, road: undefined, seenTick: state.tick, band: '数万', confidence: 'low',
+        })
+        say(state, narrative, 'merchant', spot.name, 'intel.sighting', { place: spot.name, band: '数万' }, 'low', (diff.intelDelay ?? 1) + 1)
       }
     }
   }
@@ -425,7 +453,13 @@ export function battleTick(state: OpsState, campaign: OpsCampaign, narrative: Op
     if (battle.days >= 6 || atkBroken || defBroken) {
       const winner = atkBroken && !defBroken ? 'defender' : defBroken && !atkBroken ? 'attacker' : 'draw'
       resolveBattle(state, campaign, narrative, rules, battle, winner)
+      continue
     }
+    // 兵力比决胜：原实现只按「累计损失占初始兵力比」与士气阈值判溃败，两方损失率几乎同量级，
+    // 于是每场仗都撑到 6 天上限判平——围城打不下来、围歼永远差一口气。这里按当下实力比补一条终局判定。
+    const ratio = atkNow / Math.max(1, defNow)
+    if (battle.days >= 2 && ratio >= 2.6) resolveBattle(state, campaign, narrative, rules, battle, 'attacker')
+    else if (battle.days >= 2 && ratio <= 0.38) resolveBattle(state, campaign, narrative, rules, battle, 'defender')
     void playerAttacking
   }
 }
@@ -466,27 +500,47 @@ function resolveBattle(state: OpsState, campaign: OpsCampaign, narrative: OpsNar
       say(state, narrative, 'border', place, 'battle.annihilated', { place }, 'high', 0, true)
       continue
     }
-    const haven = rearCity(state, army.faction, city?.id ?? fromCity, battle.place)
-    army.pos = { kind: 'city', city: haven ?? fromCity }
+    // 后撤改为「下达撤退令、按路线逐日行之」，不再瞬移：
+    // 原实现把溃军一天搬到五六跳外（掠过敌城），玩家看到的就是部队瞬移。
+    const origin = fromCity ?? city?.id ?? ''
+    const haven = origin ? nearestFriendlyCity(state, army.faction, origin) : null
+    army.pos = { kind: 'city', city: origin || (army.pos.kind === 'city' ? army.pos.city : '') }
     army.route = []
-    army.order = null
     army.inBattle = null
     army.morale = clamp(army.morale - 15, 5, 100)
+    army.order = haven && haven !== origin
+      ? { task: 'retreat', target: haven, sinceTick: state.tick, arrived: false, waitTicks: 0 }
+      : null
   }
   for (const id of battle.attackerIds.concat(battle.defenderIds)) {
     const army = state.armies[id]
     if (!army || army.removed) continue
     army.inBattle = null
     // 玩家部队战后恢复原行军命令（避免被反复开战锁死在原地）
+    // 败方已经有撤退令，不要被「恢复原命令 / 清空命令」覆盖
+    if (army.order?.task === 'retreat') { if (state.orderMemory) delete state.orderMemory[id]; continue }
     if (army.faction === state.playerFaction) {
+      // 只在该部队战后没有新命令时才恢复旧命令：
+      // 原实现无条件覆盖，会把交战期间玩家刚下的新令（例如「突袭洛涧」）冲掉。
       const saved = state.orderMemory?.[id]
-      if (saved) army.order = { ...saved }
+      if (saved && !army.order) army.order = { ...saved }
     } else {
       army.order = null
     }
     if (state.orderMemory) delete state.orderMemory[id]
   }
-  if (battle.city) state.vars['cool:' + battle.city] = state.tick + 3
+  if (battle.city) {
+    state.vars['cool:' + battle.city] = winner === 'draw' ? state.tick + 5 : state.tick + 3
+    // 守军野战失利后城墙防务随之崩解：否则城内守备数与野战军毫无关联，胜了也拿不下城
+    const cityHere = state.cities[battle.city]
+    const loserFaction = winner === 'attacker'
+      ? state.armies[battle.defenderIds[0] ?? '']?.faction
+      : winner === 'defender' ? state.armies[battle.attackerIds[0] ?? '']?.faction : undefined
+    if (cityHere && loserFaction && cityHere.owner === loserFaction) {
+      cityHere.garrison = Math.round(cityHere.garrison * 0.55)
+      cityHere.morale = clamp(cityHere.morale - 12, 5, 100)
+    }
+  }
   state.battles = state.battles.filter(b => b.id !== battle.id)
   const winnerName = winner === 'draw' ? '' : (winner === 'attacker' ? battle.attackerIds[0] : battle.defenderIds[0])
   const winnerFaction = winnerName ? state.armies[winnerName]?.faction : undefined
@@ -503,19 +557,6 @@ function resolveBattle(state: OpsState, campaign: OpsCampaign, narrative: OpsNar
     }
   }
   rules.onBattleResolved?.(state, campaign, battle, winner, narrative)
-}
-
-/** 溃退时退向后方：优先选一个不是当前交战城的己方城市 */
-function rearCity(state: OpsState, faction: string, from: string, battlePlace: string): string | null {
-  let best: string | null = null
-  let bestLen = -1
-  for (const city of Object.values(state.cities)) {
-    if (city.owner !== faction) continue
-    if (city.name === battlePlace) continue
-    const len = shortestRoute(state.roads, from, city.id).length
-    if (len > bestLen && len <= 6) { bestLen = len; best = city.id }
-  }
-  return best
 }
 
 function nearestFriendlyCity(state: OpsState, faction: string, from: string): string | null {
@@ -540,14 +581,15 @@ export function siegeTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
       continue
     }
     // 无守备的城池：进入即接管（弃城 / 守军已撤）
-    if (city.garrison < 300 && hostile.every(a => a.faction === state.playerFaction)) {
-      city.owner = state.playerFaction
+    if (city.garrison < 300) {
+      const holder = hostile[0]!.faction
+      city.owner = holder
       city.garrison = 0
       city.besieged = false
-      say(state, narrative, 'border', city.name, 'siege.fall', { city: city.name, side: '我军' }, 'high', 1, true)
+      say(state, narrative, 'border', city.name, 'siege.fall', { city: city.name, side: holder === state.playerFaction ? '我军' : '敌方' }, 'high', 1, true)
       state.log.push('第' + (state.tick + 1) + '日：' + city.name + '易手')
-      state.citiesTaken.push(city.id)
-      rules.onCityCaptured?.(state, campaign, city, state.playerFaction, narrative)
+      if (holder === state.playerFaction) state.citiesTaken.push(city.id)
+      rules.onCityCaptured?.(state, campaign, city, holder, narrative)
       continue
     }
     const assaulting = hostile.filter(a => a.order?.task === 'assault' || a.order?.task === 'strike')
@@ -590,8 +632,7 @@ export function logisticsTick(state: OpsState, campaign: OpsCampaign, narrative:
     if (army.pos.kind === 'city' && state.cities[army.pos.city]?.owner === army.faction) {
       supply = 'ok'
     } else {
-      const path = ownSupplyPath(state, army.faction, from)
-      supply = path ? 'threatened' : 'cut'
+      supply = supplyStateFor(state, army.faction, from)
     }
     army.supply = supply
     const supplyFactor = campaign.difficulty[state.difficulty]?.supplyFactor ?? 1
@@ -626,10 +667,50 @@ export function logisticsTick(state: OpsState, campaign: OpsCampaign, narrative:
       army.fatigue = clamp(army.fatigue - 8, 0, 100)
       army.morale = clamp(army.morale + 1.2, 5, 100)
     }
+    if (army.order?.task === 'scout') {
+      // 侦察：揭开周边城邑，并提高当日到下日军情的命中率
+      state.vars.scouting = 1
+      if (army.faction === state.playerFaction && army.pos.kind === 'city') {
+        for (const road of state.roads) {
+          const other = road.from === army.pos.city ? road.to : road.to === army.pos.city ? road.from : null
+          if (!other) continue
+          const target = state.cities[other]
+          if (target && !target.known) {
+            target.known = true
+            say(state, narrative, 'scout', target.name, 'intel.sighting', { place: target.name, band: '不详' }, 'mid', 0)
+          }
+        }
+      }
+    }
+    if (army.order?.task === 'forage') {
+      // 筹粮：立足于城镇就地征粮，耗当地存粮换军粮
+      if (city && city.grain > 0 && city.owner === army.faction) {
+        const gain = Math.min(5, city.grain * 0.4, campaign.balance.maxFoodDays - army.foodDays)
+        if (gain > 0.5) {
+          army.foodDays = clamp(army.foodDays + gain, 0, campaign.balance.maxFoodDays)
+          city.grain = Math.max(0, city.grain - gain * 1.6)
+          army.morale = clamp(army.morale - 0.3, 5, 100)
+          if (army.faction === state.playerFaction && state.tick % 3 === 0) {
+            say(state, narrative, 'court', city.name, 'supply.low', { army: army.name }, 'mid', 1)
+          }
+        }
+      } else if (army.faction === state.playerFaction && state.tick % 4 === 0) {
+        say(state, narrative, 'court', city?.name ?? '前线', 'order.blocked',
+          { army: army.name, reason: '城外无粮可征，须先占城' }, 'mid', 1)
+      }
+    }
+    if (army.order?.task === 'cross') {
+      // 渡河：涉渡期间速度减慢，但可跨过 river 类道路
+      army.fatigue = clamp(army.fatigue + 1.5, 0, 100)
+    }
   }
 }
 
-function ownSupplyPath(state: OpsState, faction: string, from: string): string | null {
+/**
+ * 补给线判定：沿通往最近友城的路线检查途经城邑归属。
+ * 旧实现只要图上「走得到」友城就算受威胁，连通图上恒真，于是断粮分支永远不会触发。
+ */
+function supplyStateFor(state: OpsState, faction: string, from: string): OpsArmyState['supply'] {
   let best: string | null = null
   let bestLen = Number.POSITIVE_INFINITY
   for (const city of Object.values(state.cities)) {
@@ -638,7 +719,20 @@ function ownSupplyPath(state: OpsState, faction: string, from: string): string |
     if (route.length === 0 && from !== city.id) continue
     if (route.length < bestLen) { bestLen = route.length; best = city.id }
   }
-  return best
+  if (!best) return 'cut'
+  const route = shortestRoute(state.roads, from, best)
+  const hostileAt = (id: string): boolean => {
+    const city = state.cities[id]
+    return !!city && city.owner !== faction && city.owner !== 'neutral'
+  }
+  for (const id of route) if (hostileAt(id)) return 'cut'
+  for (const id of [from, best, ...route]) {
+    for (const road of state.roads) {
+      const other = road.from === id ? road.to : road.to === id ? road.from : null
+      if (other && hostileAt(other)) return 'threatened'
+    }
+  }
+  return 'ok'
 }
 
 // ---------- 主循环 ----------
@@ -647,6 +741,8 @@ export function advanceOpsDay(state: OpsState, campaign: OpsCampaign, narrative:
   if (state.over) return { pendingNode: null, over: true }
   if (state.pendingNode) return { pendingNode: state.pendingNode, over: false }
   state.tick += 1
+  // 侦察的收益只在“发出侦察的次日”生效一天，不能永久挂着一个加成
+  state.vars.scouting = 0
   if (state.tick - state.lastTokenTick >= 8) {
     state.lastTokenTick = state.tick
     state.tokens = clamp(state.tokens + 1, 0, 3)
@@ -694,6 +790,11 @@ export function timeoutOpsNode(state: OpsState, campaign: OpsCampaign, narrative
   const quality = campaign.difficulty[state.difficulty].defaultQuality
   const idx = quality >= 0.75 ? -1 : Math.min(node.options.length - 1, Math.floor((1 - quality) * node.options.length))
   const optionId = idx < 0 ? node.defaultOption : (node.options[idx]?.id ?? node.defaultOption)
+  // 逾期不能白拿：仍然按难度执行默认方案，但付一次代价（少一枚军令牌 + 士气折损 + 一条回执）。
+  // 原来的实现等于「史实难度挂机即最优」，与「逾时惩罚」的文案相反。
+  state.tokens = clamp(state.tokens - 1, 0, 3)
+  for (const army of armiesOf(state, state.playerFaction)) army.morale = clamp(army.morale - 3, 5, 100)
+  addReport(state, 'court', '军前', '军议未决，逾时依令而行：' + (node.options.find(o => o.id === optionId)?.label ?? optionId) + '。此议耗去一枚军令牌。', 'high', 0, true)
   resolveOpsNode(state, campaign, narrative, rules, node.id, optionId)
 }
 

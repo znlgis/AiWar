@@ -272,6 +272,9 @@ export interface Score {
   facts?: {
     qiLost: number
     weiLost: number
+    /** 与 qiLost/weiLost 同值的通用字段：非围魏救赵战役用它显示双方折损 */
+    playerLost?: number
+    enemyLost?: number
     zhaoSurvived: boolean
     citiesTaken: string[]
     days: number
