@@ -4,3 +4,4 @@ import { narrator, corpus } from './guiling-353bc/narratives.js'
 export const campaigns = [guilingCampaign]
 export const defaultCampaign = guilingCampaign
 export { guilingCampaign, narrator, corpus }
+export * from './packs.js'

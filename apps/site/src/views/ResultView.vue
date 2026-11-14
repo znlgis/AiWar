@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { store, newCampaign, toTitle, toAbout } from '../store/game'
+import { store, newCampaign, toTitle, toAbout, currentPack } from '../store/game'
 
 const ui = computed(() => store.ui!)
 const score = computed(() => ui.value.score!)
+const pack = computed(() => currentPack())
+const sides = computed(() => score.value.sides ?? { player: '我军', enemy: '敌军' })
+const facts = computed(() => (score.value as unknown as { facts?: { qiLost: number; weiLost: number; zhaoSurvived: boolean; ambush: boolean; citiesTaken: string[] } }).facts)
+const highlights = computed(() => score.value.highlights ?? [])
+const lines = computed(() => (score.value as unknown as { lines?: string[] }).lines ?? facts.value?.citiesTaken ?? [])
 </script>
 
 <template>
   <main v-if="score" class="page result-page">
     <div class="wrap">
       <header class="head">
-        <span class="eyebrow">战役结束</span>
+        <span class="eyebrow">战役结束 · {{ pack.meta.title }}</span>
         <h1 class="serif">{{ score.endingTitle }}</h1>
         <p class="ending">{{ score.endingText }}</p>
         <div class="grade-row">
@@ -36,24 +41,28 @@ const score = computed(() => ui.value.score!)
         <div class="card">
           <h2>战果</h2>
           <dl class="facts">
-            <div><dt>齐军折损</dt><dd>{{ Math.round(score.facts.qiLost).toLocaleString() }} 人</dd></div>
-            <div><dt>魏军折损</dt><dd>{{ Math.round(score.facts.weiLost).toLocaleString() }} 人</dd></div>
-            <div><dt>邯郸</dt><dd>{{ score.facts.zhaoSurvived ? '保全' : '陷落' }}</dd></div>
-            <div><dt>伏击</dt><dd>{{ score.facts.ambush ? '成功' : '未成' }}</dd></div>
-            <div><dt>取城</dt><dd>{{ score.facts.citiesTaken.length ? score.facts.citiesTaken.join('、') : '无' }}</dd></div>
+            <template v-if="facts">
+              <div><dt>{{ sides.player }}折损</dt><dd>{{ Math.round(facts.qiLost).toLocaleString() }} 人</dd></div>
+              <div><dt>{{ sides.enemy }}折损</dt><dd>{{ Math.round(facts.weiLost).toLocaleString() }} 人</dd></div>
+              <div><dt>邯郸</dt><dd>{{ facts.zhaoSurvived ? '保全' : '陷落' }}</dd></div>
+              <div><dt>伏击</dt><dd>{{ facts.ambush ? '成功' : '未成' }}</dd></div>
+            </template>
+            <template v-else>
+              <div v-for="h in highlights" :key="h.label"><dt>{{ h.label }}</dt><dd>{{ h.value }}</dd></div>
+            </template>
           </dl>
         </div>
         <div class="card">
-          <h2>关键决策</h2>
+          <h2>关键节点</h2>
           <ul class="lines">
-            <li v-for="(line, i) in score.facts.lines" :key="i">{{ line }}</li>
+            <li v-for="(line, i) in lines.slice(-10)" :key="i">{{ line }}</li>
           </ul>
         </div>
       </section>
 
       <section class="card">
         <h2>史实参照</h2>
-        <p class="history">史实：田忌、孙膑率齐军佯攻平陵、示弱骄敌，继以轻车西驰大梁，迫使庞涓回师，战于桂陵，大破魏军。此局与你所走的每一步，都只是诸多可能中的一种。</p>
+        <p class="history">{{ pack.meta.objective }} 本局与史实未必一致：你的每一个关键决策，都只是诸多可能中的一种。</p>
       </section>
 
       <div class="actions">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { Task, Modifier, OrderDraft } from '@aiwar/sim'
-import { store, submitOrder, orderPreview, closeOrder } from '../../store/game'
+import { store, submitOrder, orderPreview, closeOrder, currentPack } from '../../store/game'
 
 const ui = computed(() => store.ui!)
 const armies = computed(() => ui.value.armies)
@@ -12,16 +12,13 @@ const target = ref('')
 const modifiers = ref<Modifier[]>([])
 const error = ref('')
 
-const TASKS: { id: Task; label: string }[] = [
-  { id: 'march', label: '行军' }, { id: 'hold', label: '驻守' }, { id: 'feint', label: '佯攻' },
-  { id: 'assault', label: '强攻' }, { id: 'ambush', label: '设伏' }, { id: 'pursue', label: '追击' },
-  { id: 'retreat', label: '撤退' }, { id: 'rest', label: '休整' }, { id: 'forage', label: '征粮' },
-  { id: 'scout', label: '侦察' }, { id: 'envoy', label: '遣使' },
-]
-const MODS: { id: Modifier; label: string }[] = [
-  { id: 'forced', label: '疾行' }, { id: 'stealth', label: '隐蔽' }, { id: 'feignWeak', label: '示弱' },
-  { id: 'night', label: '夜行' }, { id: 'dropBaggage', label: '弃辎重' },
-]
+const TASKS = computed(() => currentPack().tasks as { id: Task; label: string }[])
+const MODS: { id: Modifier; label: string }[] = currentPack().engine === 'legacy'
+  ? [
+    { id: 'forced', label: '疾行' }, { id: 'stealth', label: '隐蔽' }, { id: 'feignWeak', label: '示弱' },
+    { id: 'night', label: '夜行' }, { id: 'dropBaggage', label: '弃辎重' },
+  ]
+  : []
 const ENVOYS = [
   { id: 'chu', label: '遣使赴楚' }, { id: 'qin', label: '遣使赴秦' },
   { id: 'song', label: '遣使赴宋' }, { id: 'wei_state', label: '遣使赴卫' },
@@ -48,7 +45,7 @@ function toggleMod(m: Modifier) {
   else if (modifiers.value.length < 2) modifiers.value.push(m)
 }
 function pickTarget(id: string) { target.value = id }
-function pickEnvoy(id: string) { target.value = id; task.value = 'envoy' }
+function pickEnvoy(id: string) { target.value = id; task.value = 'envoy' as Task }
 function submit() {
   error.value = ''
   if (isEnvoy.value) {

@@ -1,0 +1,209 @@
+import type { OpsCampaign, OpsCityDef, OpsRoadDef, OpsArmyDef, DecisionNodeDef, Difficulty, DifficultyId } from '@aiwar/sim'
+
+const cities: OpsCityDef[] = [
+  { id: 'xuzhou', name: '徐州', x: 300, y: 300, owner: 'kmt', kind: 'capital', terrain: 'city', garrison: 30000, wall: 2.6, grain: 60 },
+  { id: 'jiawang', name: '贾汪', x: 360, y: 250, owner: 'kmt', kind: 'city', terrain: 'mountain', garrison: 22000, wall: 1.4, grain: 20 },
+  { id: 'taierzhuang', name: '台儿庄', x: 410, y: 210, owner: 'kmt', kind: 'city', terrain: 'river', garrison: 6000, wall: 1.4, grain: 16 },
+  { id: 'pizhou', name: '邳县渡口', x: 430, y: 280, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 4000, wall: 1.0, grain: 12 },
+  { id: 'yaowan', name: '窑湾', x: 500, y: 250, owner: 'kmt', kind: 'city', terrain: 'river', garrison: 8000, wall: 1.2, grain: 18 },
+  { id: 'xinan', name: '新安镇', x: 520, y: 320, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 9000, wall: 1.2, grain: 20 },
+  { id: 'nianzhuang', name: '碾庄圩', x: 440, y: 330, owner: 'kmt', kind: 'fort', terrain: 'plain', garrison: 12000, wall: 1.8, grain: 24 },
+  { id: 'caobaji', name: '曹八集', x: 380, y: 340, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 4000, wall: 1.2, grain: 14 },
+  { id: 'daxujia', name: '大许家', x: 330, y: 360, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.2, grain: 16 },
+  { id: 'suxian', name: '宿县', x: 300, y: 430, owner: 'kmt', kind: 'city', terrain: 'city', garrison: 8000, wall: 1.6, grain: 24 },
+  { id: 'nanpingji', name: '南坪集', x: 240, y: 460, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 3000, wall: 1.0, grain: 10 },
+  { id: 'shuangduiji', name: '双堆集', x: 300, y: 490, owner: 'kmt', kind: 'fort', terrain: 'plain', garrison: 11000, wall: 1.6, grain: 18 },
+  { id: 'guzhen', name: '固镇', x: 360, y: 520, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 5000, wall: 1.2, grain: 14 },
+  { id: 'bengbu', name: '蚌埠', x: 400, y: 580, owner: 'kmt', kind: 'city', terrain: 'city', garrison: 25000, wall: 2.0, grain: 40 },
+  { id: 'yongcheng', name: '永城', x: 180, y: 400, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 5000, wall: 1.2, grain: 14 },
+  { id: 'chenguanzhuang', name: '陈官庄', x: 160, y: 350, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 30000, wall: 1.2, grain: 20 },
+  { id: 'lincheng', name: '临城', x: 250, y: 210, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.2, grain: 16 },
+]
+
+const roads: OpsRoadDef[] = [
+  { id: 'h1', from: 'xuzhou', to: 'jiawang', days: 1, kind: 'road' },
+  { id: 'h2', from: 'jiawang', to: 'taierzhuang', days: 1, kind: 'road' },
+  { id: 'h3', from: 'taierzhuang', to: 'pizhou', days: 1, kind: 'river', name: '运河' },
+  { id: 'h4', from: 'pizhou', to: 'yaowan', days: 1, kind: 'river' },
+  { id: 'h5', from: 'yaowan', to: 'xinan', days: 1, kind: 'road' },
+  { id: 'h6', from: 'xinan', to: 'nianzhuang', days: 2, kind: 'road', name: '陇海线' },
+  { id: 'h7', from: 'nianzhuang', to: 'caobaji', days: 1, kind: 'road' },
+  { id: 'h8', from: 'caobaji', to: 'daxujia', days: 1, kind: 'road' },
+  { id: 'h9', from: 'daxujia', to: 'xuzhou', days: 1, kind: 'road' },
+  { id: 'h10', from: 'xuzhou', to: 'nianzhuang', days: 2, kind: 'road' },
+  { id: 'h11', from: 'xuzhou', to: 'suxian', days: 2, kind: 'rail', name: '津浦线' },
+  { id: 'h12', from: 'suxian', to: 'guzhen', days: 1, kind: 'rail' },
+  { id: 'h13', from: 'guzhen', to: 'bengbu', days: 2, kind: 'rail' },
+  { id: 'h14', from: 'suxian', to: 'shuangduiji', days: 2, kind: 'road' },
+  { id: 'h15', from: 'shuangduiji', to: 'nanpingji', days: 1, kind: 'river', name: '浍河' },
+  { id: 'h16', from: 'nanpingji', to: 'shuangduiji', days: 1, kind: 'road' },
+  { id: 'h17', from: 'xuzhou', to: 'yongcheng', days: 2, kind: 'road' },
+  { id: 'h18', from: 'yongcheng', to: 'chenguanzhuang', days: 1, kind: 'road' },
+  { id: 'h19', from: 'xuzhou', to: 'bengbu', days: 5, kind: 'rail' },
+  { id: 'h20', from: 'xuzhou', to: 'lincheng', days: 2, kind: 'rail' },
+  { id: 'h21', from: 'lincheng', to: 'jiawang', days: 1, kind: 'road' },
+]
+
+const armies: OpsArmyDef[] = [
+  { id: 'pl-e', name: '华野主力', faction: 'pla', commander: '华野指挥部', troops: 220000, type: 'mixed', morale: 82, fatigue: 8, training: 1.15, foodDays: 26, city: 'pizhou', stealth: 0.3 },
+  { id: 'pl-e2', name: '华野东线兵团', faction: 'pla', commander: '东线兵团', troops: 80000, type: 'infantry', morale: 80, fatigue: 8, training: 1.1, foodDays: 20, city: 'xinan', stealth: 0.35 },
+  { id: 'pl-c', name: '中野主力', faction: 'pla', commander: '中野指挥部', troops: 120000, type: 'mixed', morale: 80, fatigue: 12, training: 1.1, foodDays: 18, city: 'suxian', stealth: 0.3 },
+  { id: 'pl-l', name: '地方武装', faction: 'pla', commander: '军区部队', troops: 60000, type: 'infantry', morale: 74, fatigue: 6, training: 0.95, foodDays: 16, city: 'yongcheng', stealth: 0.4 },
+  { id: 'kmt-7', name: '第7兵团', faction: 'kmt', commander: '第7兵团部', troops: 120000, type: 'mixed', morale: 66, fatigue: 14, training: 1.0, foodDays: 16, city: 'xinan' },
+  { id: 'kmt-13', name: '第13兵团', faction: 'kmt', commander: '第13兵团部', troops: 80000, type: 'mixed', morale: 64, fatigue: 10, training: 1.0, foodDays: 18, city: 'xuzhou' },
+  { id: 'kmt-2', name: '第2兵团', faction: 'kmt', commander: '第2兵团部', troops: 120000, type: 'mixed', morale: 68, fatigue: 10, training: 1.05, foodDays: 18, city: 'xuzhou' },
+  { id: 'kmt-16', name: '第16兵团', faction: 'kmt', commander: '第16兵团部', troops: 40000, type: 'infantry', morale: 58, fatigue: 8, training: 0.9, foodDays: 14, city: 'xuzhou' },
+  { id: 'kmt-12', name: '第12兵团', faction: 'kmt', commander: '第12兵团部', troops: 120000, type: 'mixed', morale: 66, fatigue: 14, training: 1.05, foodDays: 14, city: 'nanpingji' },
+  { id: 'kmt-6', name: '第6兵团', faction: 'kmt', commander: '第6兵团部', troops: 50000, type: 'infantry', morale: 60, fatigue: 8, training: 0.95, foodDays: 16, city: 'bengbu' },
+  { id: 'kmt-8', name: '第8兵团', faction: 'kmt', commander: '第8兵团部', troops: 50000, type: 'infantry', morale: 58, fatigue: 8, training: 0.95, foodDays: 16, city: 'bengbu' },
+  { id: 'kmt-3', name: '第3绥靖区', faction: 'kmt', commander: '第3绥靖区部', troops: 23000, type: 'infantry', morale: 50, fatigue: 6, training: 0.85, foodDays: 12, city: 'jiawang' },
+]
+
+const decisions: DecisionNodeDef[] = [
+  {
+    id: 'd1', title: '打多大：小淮海还是大淮海', prompt: '战役发起前，是只求歼第7兵团、还是准备与徐州主力决战？',
+    options: [
+      { id: 'opt1', label: '小淮海：先歼第7兵团，视情况再扩大', desc: '稳扎稳打，但可能给敌军收缩时间。', hint: '保守方案。' },
+      { id: 'opt2', label: '大淮海：一次准备打大仗', desc: '兵力前推、准备围歼多路，战果大但风险高。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt3', label: '先打徐州', desc: '直取要点，但徐州兵力雄厚。', hint: '硬碰硬。' },
+      { id: 'opt4', label: '按兵不动，等敌军先动', desc: '让敌军暴露意图，但错过战机。', hint: '可能丧失先手。' },
+    ],
+    defaultOption: 'opt2',
+  },
+  {
+    id: 'd2', title: '徐州怎么守（敌情判断）', prompt: '情报显示徐州集团可能收缩兵力或南撤。我军如何布置？',
+    options: [
+      { id: 'opt1', label: '切断徐蚌线，分割徐州与蚌埠', desc: '先关门打狗，但需要分兵。', hint: '关键一步。', recommended: true },
+      { id: 'opt2', label: '集中主力攻徐州', desc: '直取要点，但敌军可能突围。', hint: '风险高。' },
+      { id: 'opt3', label: '主力南压，先打蚌埠', desc: '断敌退路，但徐州压力减轻。', hint: '南线重要。' },
+      { id: 'opt4', label: '保持观望', desc: '等待更好时机。', hint: '敌军会收缩。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd3', title: '第7兵团：追不追', prompt: '第7兵团正从新安镇西撤。是否立即追击，还是等其收缩后再围？',
+    options: [
+      { id: 'opt1', label: '立即追击，粘住敌军', desc: '在运动中歼敌，但部队疲劳。', hint: '战机稍纵即逝。', recommended: true },
+      { id: 'opt2', label: '等敌军停下再围', desc: '准备更充分，但敌军可能跑掉。', hint: '稳妥但可能落空。' },
+      { id: 'opt3', label: '先占领运河渡口', desc: '断其退路，但兵力分散。', hint: '关键节点。' },
+      { id: 'opt4', label: '放弃追击，转兵南线', desc: '集中兵力，但放跑第7兵团。', hint: '不推荐。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd4', title: '贾汪：策动战场转向', prompt: '贾汪第3绥靖区内部已有联系。是否在总攻前策动其脱离原建制？',
+    options: [
+      { id: 'opt1', label: '立即策动，要求按期行动', desc: '打开徐州东北门户，但泄露风险大。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt2', label: '继续潜伏，等待更好时机', desc: '保密性高，但可能错过窗口。', hint: '谨慎。' },
+      { id: 'opt3', label: '不强求，直接强攻', desc: '不依赖策反，但伤亡大。', hint: '代价高。' },
+      { id: 'opt4', label: '派人接触，只做试探', desc: '保持联系，不做承诺。', hint: '折中。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd5', title: '宿县：打不打', prompt: '宿县是津浦线枢纽。是否攻占，切断徐州与蚌埠的联系？',
+    options: [
+      { id: 'opt1', label: '立即攻占宿县', desc: '关门打狗的关键一步。', hint: '战略转折。', recommended: true },
+      { id: 'opt2', label: '暂不攻，集中兵力围歼', desc: '保证围歼兵力，但徐蚌线仍通。', hint: '可能两面受敌。' },
+      { id: 'opt3', label: '只派小部队袭扰铁路', desc: '不占城，只破路。', hint: '效果有限。' },
+      { id: 'opt4', label: '派兵牵制，主力南下', desc: '分散兵力。', hint: '不推荐。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd6', title: '先打谁：吃一个、挟一个、看一个', prompt: '黄维兵团北援。是围歼黄维，还是先解决第7兵团？',
+    options: [
+      { id: 'opt1', label: '先解决第7兵团，再打黄维', desc: '集中兵力各个击破。', hint: '顺序问题。', recommended: true },
+      { id: 'opt2', label: '分兵同时围歼两处', desc: '两线作战，风险大。', hint: '兵力紧张。' },
+      { id: 'opt3', label: '先打黄维，回头再收拾第7兵团', desc: '南线威胁更急。', hint: '可能两头落空。' },
+      { id: 'opt4', label: '放开一路，集中打一处', desc: '稳妥但战果有限。', hint: '保守。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd7', title: '徐州集团往哪撤', prompt: '徐州集团放弃徐州南撤。我军应如何预判与部署？',
+    options: [
+      { id: 'opt1', label: '判断其向西南撤退，预先包围', desc: '抢在敌军前面合围。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt2', label: '判断其向东南撤退', desc: '若判断错误，包围落空。', hint: '情报决定。' },
+      { id: 'opt3', label: '分兵两路堵截', desc: '稳妥但兵力分散。', hint: '保守。' },
+      { id: 'opt4', label: '不强求包围，追歼后尾', desc: '保存实力。', hint: '战果有限。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd8', title: '围而不打还是立即总攻', prompt: '陈官庄集团已被围。是立即总攻，还是围而不打、政治攻势？',
+    options: [
+      { id: 'opt1', label: '围而不打，先做政治攻势', desc: '减少伤亡，但需要时间与后勤。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt2', label: '立即总攻', desc: '速战速决，但伤亡大。', hint: '代价高。' },
+      { id: 'opt3', label: '围三缺一，诱其突围', desc: '在运动中歼敌。', hint: '需要预判。' },
+      { id: 'opt4', label: '长期围困，等其自溃', desc: '时间站在我方，但后勤压力大。', hint: '风险。' },
+    ],
+    defaultOption: 'opt1',
+  },
+]
+
+const difficulty: Record<DifficultyId, Difficulty> = {
+  hist: { id: 'hist', name: '史实', label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 0.92, defaultQuality: 0.9 },
+  normal: { id: 'normal', name: '普通', label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, scoreFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1.08, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1.15, defaultQuality: 0.1 },
+}
+
+export const huaihaiCampaign: OpsCampaign = {
+  meta: {
+    id: 'huaihai-1948',
+    title: '淮海战役',
+    subtitle: '1948.11—1949.1 · 华东、中原野战军',
+    era: '解放战争',
+    premise: '六十万对八十万，在徐州周围切块围歼，三个阶段吃掉三个重兵集团。',
+    dateLabel: '民国三十七年冬 · 徐州剿总',
+    startLabel: '第一日',
+    playerRole: '战役总前委（职务视角，不具名）',
+    background:
+      '1948 年冬，国民党军徐州剿总在陇海、津浦两线摆开十字形部署。解放军以华东野战军、中原野战军及地方部队约六十万，采取"切块、连续围歼"的打法：先围歼第 7 兵团，再围歼第 12 兵团，最后解决徐州撤退集团。支前后勤、战场转向与政治攻势，是这场战役区别于一般会战的关键。',
+    objective: '逐次围歼敌军重兵集团，力争全胜；同时保存自己、维持后勤与民工运力。',
+    infoTip: '战报与情报都有误差。敌军会收缩、突围或起义——你的判断决定包围圈能否合拢。',
+    dossier: [
+      { title: '战前态势', text: '徐州为陇海、津浦交点。国民党军 4 个兵团加绥靖区约 60 万，沿铁路摆开；解放军华野约 36—40 万、中野约 12—15 万，加军区部队约 60 万。' },
+      { title: '第一阶段：碾庄圩', text: '11 月 6 日战役发起，第 7 兵团西撤。华野追击并于碾庄圩地区将其包围，11 月 22 日全歼，兵团司令官阵亡。' },
+      { title: '贾汪转向', text: '11 月 8 日，第 3 绥靖区在贾汪、台儿庄一带脱离原建制，徐州东北门户洞开。' },
+      { title: '第二阶段：双堆集', text: '11 月 25 日，第 12 兵团被围于双堆集。中原野战军艰苦阻击，12 月 15 日全歼该兵团。' },
+      { title: '宿县与徐蚌线', text: '11 月中旬攻占宿县，切断徐州与蚌埠的联系，使徐州集团成为孤岛。' },
+      { title: '第三阶段：陈官庄', text: '12 月 1 日徐州集团弃城南撤，被追堵于陈官庄地区。围而不打、政治攻势二十余日，1949 年 1 月 6 日总攻，1 月 10 日结束。' },
+      { title: '支前后勤', text: '据公开党史军史资料，支前民工约 543 万人次，大小车 88 万余辆，粮食约 9.6 亿斤。后勤是淮海战役的另一条战线。' },
+      { title: '数字口径', text: '解放军约 60 万；国民党军战前约 60 万、累计投入约 80 万。歼敌 55.5 万，解放军伤亡约 13.4 万。数字各说不一，游戏内做写意处理。' },
+    ],
+    disclaimer: '本作以公开党史军史资料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；指挥机构以职务代称，不出现具体人物；数字存在统计口径差异，不代表严格战史。',
+  },
+  playerFaction: 'pla',
+  enemyFactions: ['kmt'],
+  factions: {
+    pla: { name: '解放军', color: '#8a3b3b', short: '解' },
+    kmt: { name: '国民党军', color: '#3b5a7a', short: '国' },
+  },
+  mapWidth: 600,
+  mapHeight: 650,
+  cities,
+  roads,
+  armies,
+  decisions,
+  difficulty,
+  balance: {
+    battleIntensity: 0.55,
+    ambushMultiplier: 1.5,
+    routTroopRatio: 0.55,
+    routMorale: 25,
+    supplyFactor: 1,
+    maxFoodDays: 24,
+    resupplyDays: 3,
+    siegeGarrisonLoss: 0.035,
+    siegeGrainLoss: 1,
+    desertionPerDay: 0.003,
+  },
+  weather: [
+    { id: 'clear', label: '晴' },
+    { id: 'snow', label: '雪' },
+    { id: 'fog', label: '雾' },
+  ],
+  rulesId: 'huaihai-1948',
+}

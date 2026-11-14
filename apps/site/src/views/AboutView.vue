@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { campaign, toTitle, store } from '../store/game'
+import { computed } from 'vue'
+import { currentPack, toTitle, store } from '../store/game'
+
+const pack = computed(() => currentPack())
 </script>
 
 <template>
@@ -10,36 +13,37 @@ import { campaign, toTitle, store } from '../store/game'
 
       <section class="card">
         <h2>这是一款什么游戏</h2>
-        <p>历史战场推演 + 关键节点决策 + 有限情报博弈。你是齐国最高决策层，只能看到前线战报与最新势力范围；战场由推演内核与敌方 AI 决定，结果不必与史实一致。</p>
+        <p>历史战场推演 + 关键节点决策 + 有限情报博弈。你只能看到前线战报与最新势力范围；战场由推演内核与敌方 AI 决定，结果不必与史实一致。</p>
+        <p class="muted small">当前战役：{{ pack.meta.title }} · {{ pack.meta.subtitle }} · 你扮演：{{ pack.meta.playerRole }}</p>
       </section>
 
       <section class="card">
         <h2>规则</h2>
         <ul>
-          <li><b>时间</b>：一回合一日，战役上限约 110 日；可暂停、加速、单步。</li>
-          <li><b>决策</b>：七个关键节点弹出选择；逾时按难度执行默认方案，质量随难度下降。</li>
-          <li><b>军令</b>：每旬获得军令牌，可点选「部队 → 任务 → 目标 → 修饰」，无自由文本输入；军令有传令延迟。</li>
-          <li><b>情报</b>：战报有来源、送达延迟、可信度；同一件事可能被不同来源说成两样。势力图上只显示已探明的控制区与敌军最后出现位置。</li>
+          <li><b>时间</b>：一回合一日；可暂停、加速、单步。</li>
+          <li><b>决策</b>：关键节点弹出选择；逾时按难度执行默认方案，质量随难度下降。</li>
+          <li><b>军令</b>：军令牌点选「部队 → 任务 → 目标」，无自由文本输入；军令有传令延迟。</li>
+          <li><b>情报</b>：战报有来源、送达延迟、可信度；同一件事可能被不同来源说成两样。势力图上只显示已探明信息与敌军最后出现位置。</li>
           <li><b>难度</b>：只影响情报质量、决策窗口与敌方判断力，不给敌方战斗数值加成。</li>
           <li><b>地图</b>：可拖动平移，滚轮或双指缩放，双击复位；右下角有缩放按钮。</li>
-          <li><b>音效</b>：战鼓、号角、简牍与胜负音由 WebAudio 实时合成，无音频文件；顶栏可静音。</li>
-          <li><b>存档</b>：自动存档于浏览器本地；战役进行中不提供手动读档回退。</li>
+          <li><b>音效</b>：战鼓、号角、翻简与胜负音由 WebAudio 实时合成，无音频文件；顶栏可静音。</li>
+          <li><b>存档</b>：按战役自动存档于浏览器本地；战役进行中不提供手动读档回退。</li>
         </ul>
       </section>
 
       <section class="card">
         <h2>史料依据</h2>
-        <div v-for="h in campaign.meta.history" :key="h.title" class="history">
+        <div v-for="h in pack.meta.history" :key="h.title" class="history">
           <h3>{{ h.title }}</h3>
           <p>{{ h.text }}</p>
         </div>
-        <p class="disclaimer">{{ campaign.meta.disclaimer }}</p>
+        <p class="disclaimer">{{ pack.meta.disclaimer }}</p>
       </section>
 
       <section class="card">
         <h2>制作说明</h2>
-        <p>本作为静态网页互动作品：所有资源随包发布，运行时不需要联网；战报文案由开发期准备的语料库在运行时组合生成；推演与敌方决策由确定性规则内核完成，同一随机种子与同一串决策会得到同一结局。</p>
-        <p class="muted small">当前难度：{{ campaign.difficulty[store.difficulty].name }} · 版本 0.1.0</p>
+        <p>所有资源随包发布，运行时不需要联网；战报文案由语料库在运行时组合生成；推演与敌方决策由确定性规则内核完成，同一随机种子与同一串决策会得到同一结局。</p>
+        <p class="muted small">当前难度：{{ pack.difficulty[store.difficulty].name }} · 版本 0.2.0</p>
       </section>
     </div>
   </main>

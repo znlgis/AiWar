@@ -1,6 +1,7 @@
 // 推演内核的公共类型契约。content 与 UI 只依赖这一层。
 
-export type FactionId = 'qi' | 'wei' | 'zhao' | 'song' | 'wei_state' | 'chu' | 'qin'
+// 战役自定义阵营：围魏救赵用 qi/wei/...，新战役可用 red/kmt/... 等任意字符串
+export type FactionId = string
 export type DifficultyId = 'hist' | 'normal' | 'hard' | 'hell'
 export type CityKind = 'capital' | 'city' | 'fort' | 'port'
 export type RoadKind = 'road' | 'pass' | 'river'
@@ -258,13 +259,17 @@ export interface ScorePart {
 
 export interface Score {
   grade: 'S' | 'A' | 'B' | 'C' | 'D'
+  /** 结算页展示的双方称呼，缺省用齐/魏 */
+  sides?: { player: string; enemy: string }
   total: number
   parts: ScorePart[]
   endingId: string
   endingTitle: string
   endingText: string
   deviation: string
-  facts: {
+  highlights?: { label: string; value: string }[]
+  lines?: string[]
+  facts?: {
     qiLost: number
     weiLost: number
     zhaoSurvived: boolean

@@ -1,285 +1,219 @@
 import { reactive } from 'vue'
 import type {
-  GameState, DifficultyId, Score, Report, Task, Modifier, OrderDraft, DecisionOptionDef, FactionId,
+  DecisionOptionDef, DifficultyId, FactionId, GameState, OpsOrderDraft, OpsState, OrderDraft, OpsScore, Score, Task,
 } from '@aiwar/sim'
 import {
-  advanceDay, canIssue, createGame, finalize, issueOrder, orderSentence,
-  resolveDecision, seedOpening, timeoutNode, visibleReports,
+  advanceDay, advanceOpsDay, canIssue, canIssueOpsOrder, createGame, createOpsState, finalize,
+  issueOrder, issueOpsOrder, orderSentence, resolveDecision, resolveOpsNode,
+  seedOpening, timeoutNode, timeoutOpsNode,
 } from '@aiwar/sim'
-import { guilingCampaign as campaign, narrator } from '@aiwar/content'
+import { PACKS, getPack } from '@aiwar/content'
+import { projectLegacy, projectOps, type UiState, type ViewName } from './project'
 import { sfx } from '../audio/sfx'
 
-export type ViewName = 'title' | 'briefing' | 'battle' | 'result' | 'about'
-
-export interface UiArmy {
-  id: string; name: string; commander: string; task: string; target: string
-  x: number; y: number; morale: string; food: string; supply: string
-  strength: string; onRoad: boolean
-}
-export interface UiCity {
-  id: string; name: string; x: number; y: number; owner: FactionId; color: string
-  kind: string; known: boolean; besieged: boolean
-}
-export interface UiTrace { id: string; x: number; y: number; text: string; age: number }
-export interface UiReport extends Report { sourceName: string; confidenceText: string }
-export interface UiControlArea { faction: FactionId; color: string; points: [number, number][] }
-export interface UiRoad {
-  id: string; from: string; to: string; kind: string; days: number
-  x1: number; y1: number; x2: number; y2: number; name?: string
-}
-
-export interface UiState {
-  tick: number; date: string; weather: string
-  tokens: number; paused: boolean; speed: number
-  armies: UiArmy[]; cities: UiCity[]; traces: UiTrace[]; areas: UiControlArea[]; roads: UiRoad[]
-  reports: UiReport[]
-  pendingNode: string | null
-  nodeTitle: string; nodePrompt: string; options: DecisionOptionDef[]
-  decisionSeconds: number
-  over: boolean
-  score: Score | null
-  pressureText: string
-  objectiveText: string
-}
-
-const SOURCE_NAMES: Record<string, string> = {
-  scout: '斥候', border: '边亭', deserter: '降卒', merchant: '商旅',
-  envoy: '使节', court: '魏廷', counsel: '军师', note: '军报',
-}
-const CONFIDENCE_NAMES: Record<string, string> = { high: '可信度高', mid: '可信度中', low: '可信度低' }
-const WEATHER_NAMES: Record<string, string> = { clear: '晴', rain: '雨', snow: '雪', fog: '雾' }
+export type { ViewName, UiState }
+export { PACKS, getPack }
+export type { FactionId, Task }
 
 export const store = reactive({
   view: 'title' as ViewName,
+  packId: PACKS[0]?.id ?? 'guiling-353bc',
   difficulty: 'normal' as DifficultyId,
   seed: 0,
   ui: null as UiState | null,
   orderOpen: false,
   hasSave: false,
+  savedPacks: [] as string[],
 })
 
-let game: GameState | null = null
+export function currentPack() {
+  return getPack(store.packId)
+}
+
+let legacy: GameState | null = null
+let ops: OpsState | null = null
 let timer: number | null = null
 let decisionTimer: number | null = null
+let lastReportSeq = 0
 
-function band(troops: number): string {
-  return troops > 60000 ? '众' : troops > 30000 ? '多' : troops > 12000 ? '中' : '寡'
+const SAVE_PREFIX = 'aiwar.save.v2.'
+
+function packDifficulty() {
+  return currentPack().difficulty[store.difficulty]
 }
-function foodBand(days: number): string {
-  return days > 20 ? '足' : days > 8 ? '尚可' : days > 3 ? '将尽' : '已断'
+
+function activeState(): GameState | OpsState | null {
+  return legacy ?? ops
 }
-function moraleBand(v: number): string {
-  return v > 70 ? '振' : v > 45 ? '稳' : v > 25 ? '疲' : '惰'
-}
-function supplyText(s: string): string {
-  return s === 'ok' ? '通' : s === 'threatened' ? '受威胁' : '已断'
-}
+
 export function factionColor(f: FactionId): string {
-  return campaign.factions[f]?.color ?? '#666'
-}
-function cityPos(id?: string): { x: number; y: number } {
-  if (!id) return { x: 500, y: 350 }
-  const city = campaign.cities.find(c => c.id === id)
-  return city ? { x: city.x, y: city.y } : { x: 500, y: 350 }
-}
-function roadPos(from?: string, to?: string, progress = 0.5): { x: number; y: number } {
-  const a = cityPos(from)
-  const b = cityPos(to)
-  return { x: a.x + (b.x - a.x) * progress, y: a.y + (b.y - a.y) * progress }
-}
-function hull(points: [number, number][]): [number, number][] {
-  if (points.length === 1) {
-    const [x, y] = points[0]!
-    const r = 30
-    return [[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]]
-  }
-  if (points.length < 3) return points
-  const sorted = [...points].sort((p, q) => p[0] - q[0] || p[1] - q[1])
-  const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
-    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-  const lower: [number, number][] = []
-  for (const p of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0) lower.pop()
-    lower.push(p)
-  }
-  const upper: [number, number][] = []
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const p = sorted[i]!
-    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0) upper.pop()
-    upper.push(p)
-  }
-  lower.pop()
-  upper.pop()
-  const result = lower.concat(upper)
-  return result.length >= 3 ? result : points
-}
-function areaPoints(pts: [number, number][]): [number, number][] {
-  if (pts.length < 3) return pts
-  let cx = 0
-  let cy = 0
-  for (const p of pts) { cx += p[0]; cy += p[1] }
-  cx /= pts.length
-  cy /= pts.length
-  return pts.map(([x, y]) => [cx + (x - cx) * 1.16, cy + (y - cy) * 1.16] as [number, number])
+  return (currentPack().campaign.factions as Record<string, { color: string }>)[f]?.color ?? '#666'
 }
 
-export function project(state: GameState): UiState {
-  const cities: UiCity[] = campaign.cities.map(def => {
-    const cs = state.cities[def.id]!
-    return {
-      id: def.id, name: def.name, x: def.x, y: def.y, owner: cs.owner,
-      color: factionColor(cs.owner), kind: def.kind, known: cs.known, besieged: cs.besieged,
-    }
-  })
-  const roads: UiRoad[] = campaign.roads.map(road => {
-    const a = cityPos(road.from)
-    const b = cityPos(road.to)
-    return {
-      id: road.id, from: road.from, to: road.to, kind: road.kind ?? 'road',
-      days: road.days, x1: a.x, y1: a.y, x2: b.x, y2: b.y, name: road.name,
-    }
-  })
-  const owned: Record<string, [number, number][]> = {}
-  const peripheral = new Set(['anyi', 'shaoliang', 'chen'])
-  for (const city of cities) {
-    if (peripheral.has(city.id)) continue
-    if (!city.known && city.owner !== 'qi') continue
-    owned[city.owner] = owned[city.owner] ?? []
-    owned[city.owner]!.push([city.x, city.y])
-  }
-  const areas: UiControlArea[] = Object.entries(owned)
-    .filter(([, pts]) => pts.length >= 1)
-    .map(([faction, pts]) => ({
-      faction: faction as FactionId, color: factionColor(faction as FactionId), points: areaPoints(hull(pts)),
-    }))
-  const armies: UiArmy[] = state.armyOrder
-    .map(id => state.armies[id])
-    .filter((a): a is NonNullable<typeof a> => !!a && !a.removed && a.faction === 'qi')
-    .map(a => {
-      const pos = a.pos.kind === 'city' ? cityPos(a.pos.city) : roadPos(a.pos.from, a.pos.to, a.pos.progress ?? 0.5)
-      return {
-        id: a.id, name: a.name, commander: a.commander,
-        task: a.order ? a.order.task : '待命',
-        target: a.order?.target ? (state.cities[a.order.target]?.name ?? '') : '',
-        x: pos.x, y: pos.y, morale: moraleBand(a.morale), food: foodBand(a.foodDays),
-        supply: supplyText(a.supply), strength: band(a.initialTroops), onRoad: a.pos.kind === 'road',
-      }
-    })
-  const traces: UiTrace[] = state.traces
-    .filter(t => t.faction === 'wei' && state.tick - t.seenTick <= 6)
-    .map(t => {
-      let pos = cityPos(t.city)
-      if (!t.city && t.road) {
-        const road = campaign.roads.find(r => r.id === t.road)
-        if (road) pos = roadPos(road.from, road.to, 0.5)
-      }
-      return {
-        id: t.armyId + t.seenTick, x: pos.x, y: pos.y,
-        text: t.place + ' · ' + t.band + ' · 第' + (t.seenTick + 1) + '日',
-        age: state.tick - t.seenTick,
-      }
-    })
-  const reports: UiReport[] = visibleReports(state)
-    .slice(-50)
-    .reverse()
-    .map(r => ({ ...r, sourceName: SOURCE_NAMES[r.source] ?? '军报', confidenceText: CONFIDENCE_NAMES[r.confidence] ?? '' }))
-  const nodeId = state.pendingNode
-  const node = nodeId ? campaign.decisions.find(d => d.id === nodeId) : undefined
+function toScore(raw: OpsScore, pack: ReturnType<typeof currentPack>): Score {
   return {
-    tick: state.tick,
-    date: campaign.meta.dateLabel + ' · 第' + (state.tick + 1) + '日',
-    weather: WEATHER_NAMES[state.weather] ?? '晴',
-    tokens: state.tokens,
-    paused: store.ui ? store.ui.paused : true,
-    speed: store.ui ? store.ui.speed : 1,
-    armies, cities, traces, areas, roads, reports,
-    pendingNode: nodeId,
-    nodeTitle: node?.title ?? '',
-    nodePrompt: node?.prompt ?? '',
-    options: node?.options ?? [],
-    decisionSeconds: store.ui?.decisionSeconds ?? 0,
-    over: state.over,
-    score: state.score,
-    pressureText: state.politics.weiPressure >= 85 ? '魏廷震动' : state.politics.weiPressure >= 55 ? '大梁告急' : state.politics.weiPressure >= 25 ? '魏廷戒严' : '魏廷未动',
-    objectiveText: state.politics.pangjuanReturning ? '魏军回师' : state.cities[campaign.roles.zhaoCapital]?.owner === 'wei' ? '邯郸已陷' : '邯郸被围',
-  }
+    grade: raw.grade,
+    total: raw.total,
+    parts: raw.parts,
+    sides: { player: pack.unitsLabel, enemy: pack.enemyLabel },
+    endingId: raw.endingId,
+    endingTitle: raw.endingTitle,
+    endingText: raw.endingText,
+    deviation: raw.deviation,
+    highlights: raw.highlights,
+    lines: raw.lines,
+  } as unknown as Score
 }
 
-function persist(): void {
-  if (!game) return
+function projectNow(): UiState {
+  const pack = currentPack()
+  if (pack.engine === 'legacy' && legacy) {
+    const ui = projectLegacy(legacy, pack.campaign)
+    ui.paused = store.ui ? store.ui.paused : true
+    ui.speed = store.ui ? store.ui.speed : 1
+    ui.decisionSeconds = store.ui?.decisionSeconds ?? 0
+    return ui
+  }
+  if (pack.engine === 'ops' && ops) {
+    const hud = pack.rules.hud?.(ops, pack.campaign)
+    const score = ops.over ? toScore(pack.rules.score(ops, pack.campaign), pack) : null
+    const ui = projectOps(ops, pack.campaign, hud, score)
+    ui.paused = store.ui ? store.ui.paused : true
+    ui.speed = store.ui ? store.ui.speed : 1
+    ui.decisionSeconds = store.ui?.decisionSeconds ?? 0
+    return ui
+  }
+  throw new Error('尚未开局')
+}
+
+function newSeed(): number { return Math.floor(Math.random() * 1e9) }
+
+function save(): void {
+  const state = activeState()
+  if (!state) return
+  const pack = currentPack()
   try {
-    localStorage.setItem('aiwar.save.v1', JSON.stringify({
-      v: 1, difficulty: store.difficulty, seed: store.seed, state: game, savedAt: Date.now(),
-    }))
-    store.hasSave = true
+    const payload = { v: 2, packId: pack.id, engine: pack.engine, difficulty: store.difficulty, seed: store.seed, state, savedAt: Date.now() }
+    localStorage.setItem(SAVE_PREFIX + pack.id, JSON.stringify(payload))
+    refreshSaves()
   } catch { /* 存储不可用时静默 */ }
 }
 
+function refreshSaves(): void {
+  const saved: string[] = []
+  for (const pack of PACKS) {
+    try { if (localStorage.getItem(SAVE_PREFIX + pack.id)) saved.push(pack.id) } catch { /* 忽略 */ }
+  }
+  store.savedPacks = saved
+  store.hasSave = saved.length > 0
+}
+
 function finish(): void {
-  if (!game) return
   stop()
-  if (!game.score) game.score = finalize(game, campaign)
-  store.ui = project(game)
+  if (ops) {
+    ops.over = true
+    if (!ops.endingId) ops.endingId = 'stalemate'
+  }
+  store.ui = projectNow()
   store.view = 'result'
-  if (game.score && (game.score.grade === 'S' || game.score.grade === 'A')) sfx.win()
+  const total = store.ui.score?.total ?? 0
+  if (total >= 75) sfx.win()
   else sfx.lose()
 }
 
-function tickLoop(): void {
-  if (!game) return
-  if (store.ui?.pendingNode) return
-  if (store.ui?.paused) return
-  advanceDay(game, campaign, narrator)
-  store.ui = project(game)
-  const fresh = store.ui.reports.filter(r => r.arriveTick === game!.tick && r.important)
-  if (fresh.length > 0) sfx.drum(fresh.length > 1)
-  if (game.tick % 4 === 0) persist()
-  if (game.over) { finish(); return }
-  if (game.pendingNode) { sfx.horn(); stop(); startDecisionTimer() }
+function playReportSound(): void {
+  const state = activeState()
+  if (!state) return
+  const fresh = state.reports.filter(r => r.arriveTick === state.tick && r.important)
+  const unseen = fresh.filter(r => Number(String(r.id).replace('r', '')) > lastReportSeq)
+  if (unseen.length > 0) {
+    lastReportSeq = Math.max(...unseen.map(r => Number(String(r.id).replace('r', ''))))
+    sfx.drum(unseen.length > 1)
+  }
+}
+
+function tickOnce(): void {
+  const pack = currentPack()
+  if (pack.engine === 'legacy' && legacy) {
+    const result = advanceDay(legacy, pack.campaign, pack.narrative)
+    store.ui = projectNow()
+    if (legacy.tick % 4 === 0) save()
+    playReportSound()
+    if (legacy.over) { finish(); return }
+    if (result.pendingNode) { sfx.horn(); stop(); startDecisionTimer() }
+    return
+  }
+  if (pack.engine === 'ops' && ops) {
+    const result = advanceOpsDay(ops, pack.campaign, pack.narrative, pack.rules)
+    store.ui = projectNow()
+    if (ops.tick % 4 === 0) save()
+    playReportSound()
+    if (ops.over) { finish(); return }
+    if (result.pendingNode) { sfx.horn(); stop(); startDecisionTimer() }
+  }
 }
 
 function startDecisionTimer(): void {
   if (!store.ui) return
-  sfx.horn()
-  const seconds = campaign.difficulty[store.difficulty].decisionSeconds
+  const seconds = packDifficulty().decisionSeconds
   store.ui.decisionSeconds = seconds
   if (decisionTimer) window.clearInterval(decisionTimer)
   decisionTimer = window.setInterval(() => {
-    if (!game || !game.pendingNode || !store.ui) { window.clearInterval(decisionTimer!); return }
+    if (!store.ui) { window.clearInterval(decisionTimer!); return }
     store.ui.decisionSeconds -= 1
     if (store.ui.decisionSeconds <= 0) {
       window.clearInterval(decisionTimer!)
-      timeoutNode(game, campaign, narrator)
-      store.ui = project(game)
-      persist()
-      if (game.over) finish()
+      timeoutCurrent()
+      store.ui = projectNow()
+      save()
+      if (activeState()?.over) finish()
       else start()
     }
   }, 1000)
 }
 
-export function startGame(load = false): void {
-  game = null
+function timeoutCurrent(): void {
+  const pack = currentPack()
+  if (pack.engine === 'legacy' && legacy && legacy.pendingNode) {
+    timeoutNode(legacy, pack.campaign, pack.narrative)
+  } else if (pack.engine === 'ops' && ops && ops.pendingNode) {
+    timeoutOpsNode(ops, pack.campaign, pack.narrative, pack.rules)
+  }
+}
+
+export function startGame(load = false, packId?: string): void {
+  legacy = null
+  ops = null
+  lastReportSeq = 0
+  if (packId) store.packId = packId
+  const pack = currentPack()
   if (load) {
-    const raw = localStorage.getItem('aiwar.save.v1')
-    if (raw) {
-      try {
-        const save = JSON.parse(raw) as { difficulty: DifficultyId; seed: number; state: GameState }
-        if (!save.state?.cities || !save.state?.armies) throw new Error('bad save')
-        store.difficulty = save.difficulty
-        store.seed = save.seed
-        game = save.state
-      } catch { game = null }
+    try {
+      const raw = localStorage.getItem(SAVE_PREFIX + pack.id)
+      if (raw) {
+        const data = JSON.parse(raw) as { v: number; difficulty: DifficultyId; seed: number; state: unknown }
+        if (data.v === 2 && data.state) {
+          store.difficulty = data.difficulty ?? store.difficulty
+          store.seed = data.seed ?? newSeed()
+          if (pack.engine === 'legacy') legacy = data.state as GameState
+          else ops = data.state as OpsState
+        }
+      }
+    } catch { legacy = null; ops = null }
+  }
+  if (!legacy && !ops) {
+    store.seed = newSeed()
+    if (pack.engine === 'legacy') {
+      legacy = createGame({ campaign: pack.campaign, difficulty: store.difficulty, seed: store.seed })
+      seedOpening(legacy, pack.campaign, pack.narrative)
+    } else {
+      ops = createOpsState(pack.campaign, store.difficulty, store.seed)
+      pack.rules.opening(ops, pack.campaign, pack.narrative)
     }
   }
-  if (!game) {
-    store.seed = Math.floor(Math.random() * 1e9)
-    game = createGame({ campaign, difficulty: store.difficulty, seed: store.seed })
-    seedOpening(game, campaign, narrator)
-  }
-  store.ui = project(game)
+  store.ui = projectNow()
   store.view = 'battle'
-  if (game.over) finish()
+  if (activeState()?.over) finish()
   else start()
 }
 
@@ -287,7 +221,7 @@ export function start(): void {
   if (!store.ui) return
   store.ui.paused = false
   if (timer) window.clearInterval(timer)
-  timer = window.setInterval(tickLoop, store.ui.speed * 650)
+  timer = window.setInterval(tickOnce, store.ui.speed * 650)
 }
 
 export function stop(): void {
@@ -308,44 +242,61 @@ export function setSpeed(v: number): void {
 }
 
 export function step(): void {
-  if (!game) return
+  if (!store.ui || store.ui.pendingNode) return
   stop()
-  advanceDay(game, campaign, narrator)
-  store.ui = project(game)
-  if (game.over) { finish(); return }
-  if (game.pendingNode) startDecisionTimer()
+  tickOnce()
+  if (activeState()?.over) return
+  if (store.ui?.pendingNode) startDecisionTimer()
 }
 
 export function choose(optionId: string): void {
-  if (!game || !game.pendingNode) return
+  if (!store.ui?.pendingNode) return
   sfx.click()
   stop()
   if (decisionTimer) window.clearInterval(decisionTimer)
-  const nodeId = game.pendingNode
-  resolveDecision(game, campaign, narrator, nodeId, optionId)
-  store.ui = project(game)
-  persist()
-  if (game.over) finish()
+  const pack = currentPack()
+  if (pack.engine === 'legacy' && legacy && legacy.pendingNode) {
+    resolveDecision(legacy, pack.campaign, pack.narrative, legacy.pendingNode, optionId)
+  } else if (pack.engine === 'ops' && ops && ops.pendingNode) {
+    resolveOpsNode(ops, pack.campaign, pack.narrative, pack.rules, ops.pendingNode, optionId)
+  }
+  store.ui = projectNow()
+  save()
+  if (activeState()?.over) finish()
   else start()
 }
 
 export function openOrder(): void { store.orderOpen = true }
 export function closeOrder(): void { store.orderOpen = false }
 
-export function submitOrder(draft: OrderDraft): string | null {
-  if (!game) return '尚未开局'
-  const reason = canIssue(game, draft)
-  if (reason) return reason
-  issueOrder(game, draft)
-  sfx.click()
-  store.ui = project(game)
-  persist()
-  return null
+export function orderPreview(draft: OrderDraft): string {
+  const pack = currentPack()
+  if (pack.engine === 'legacy' && legacy) return orderSentence(legacy, draft)
+  if (!ops) return ''
+  const names = draft.armyIds.map(id => ops!.armies[id]?.name).filter(Boolean).join('、')
+  const target = draft.target ? (ops.cities[draft.target]?.name ?? draft.target) : '敌境'
+  const taskLabel = pack.tasks.find(t => t.id === draft.task)?.label ?? draft.task
+  return '令' + (names || '诸军') + ' ' + taskLabel + (target ? ' · ' + target : '')
 }
 
-export function orderPreview(draft: OrderDraft): string {
-  if (!game) return ''
-  return orderSentence(game, draft)
+export function submitOrder(draft: OrderDraft): string | null {
+  const pack = currentPack()
+  if (pack.engine === 'legacy' && legacy) {
+    const reason = canIssue(legacy, draft)
+    if (reason) return reason
+    issueOrder(legacy, draft)
+    store.ui = projectNow()
+    save()
+    return null
+  }
+  if (!ops) return '尚未开局'
+  const opsDraft: OpsOrderDraft = { task: draft.task as OpsOrderDraft['task'], armyIds: draft.armyIds, target: draft.target }
+  const reason = canIssueOpsOrder(ops, opsDraft)
+  if (reason) return reason
+  issueOpsOrder(ops, opsDraft)
+  store.ui = projectNow()
+  save()
+  return null
 }
 
 export function backToTitle(): void {
@@ -356,39 +307,41 @@ export function backToTitle(): void {
 }
 
 export function exitToTitle(): void {
-  persist()
+  save()
   backToTitle()
 }
 
 export function abandon(): void {
-  if (window.confirm('放弃当前战局并返回标题？')) {
-    localStorage.removeItem('aiwar.save.v1')
-    store.hasSave = false
-    game = null
-    store.ui = null
-    backToTitle()
-  }
+  if (!window.confirm('放弃当前战局并返回标题？')) return
+  try { localStorage.removeItem(SAVE_PREFIX + currentPack().id) } catch { /* 忽略 */ }
+  legacy = null
+  ops = null
+  store.ui = null
+  refreshSaves()
+  backToTitle()
 }
 
 export function newCampaign(): void {
-  localStorage.removeItem('aiwar.save.v1')
-  store.hasSave = false
-  game = null
+  try { localStorage.removeItem(SAVE_PREFIX + currentPack().id) } catch { /* 忽略 */ }
+  legacy = null
+  ops = null
   store.ui = null
+  refreshSaves()
   store.view = 'title'
 }
 
-export function toBriefing(): void { store.view = 'briefing' }
+export function toBriefing(packId?: string): void {
+  if (packId) store.packId = packId
+  store.view = 'briefing'
+}
 export function toAbout(): void { store.view = 'about' }
 export function toTitle(): void { store.view = 'title' }
-export function checkSave(): void { store.hasSave = !!localStorage.getItem('aiwar.save.v1') }
+export function checkSave(): void { refreshSaves() }
+export function hasSaveFor(packId: string): boolean { return store.savedPacks.includes(packId) }
 
 export function initStore(): void {
   checkSave()
   window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') persist()
+    if (document.visibilityState === 'hidden') save()
   })
 }
-
-export { campaign, narrator }
-export type { Task, Modifier }

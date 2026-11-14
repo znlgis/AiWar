@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { store, choose, campaign } from '../../store/game'
+import { store, choose, currentPack } from '../../store/game'
 
 const ui = computed(() => store.ui!)
 const selected = ref<string>('')
 const pct = computed(() => {
-  const total = campaign.difficulty[store.difficulty].decisionSeconds
+  const total = currentPack().difficulty[store.difficulty].decisionSeconds
   return Math.max(0, Math.min(100, (ui.value.decisionSeconds / total) * 100))
 })
 function confirm() {

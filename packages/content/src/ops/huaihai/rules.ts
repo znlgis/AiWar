@@ -1,0 +1,292 @@
+import type {
+  OpsCampaign, OpsNarrative, OpsRules, OpsScore, OpsState, OpsArmyState, OpsBattle, ScorePart, OpsCityState,
+} from '@aiwar/sim'
+import { armiesOf, addReport, shortestRoute, clamp, damageArmy } from '@aiwar/sim'
+
+function army(state: OpsState, id: string): OpsArmyState | undefined { return state.armies[id] }
+function cityName(state: OpsState, id?: string): string { return id ? state.cities[id]?.name ?? id : '战场' }
+function dist(state: OpsState, a: string, b: string): number { return shortestRoute(state.roads, a, b).length }
+function playerTroops(state: OpsState): number {
+  return armiesOf(state, state.playerFaction).reduce((s, a) => s + a.troops, 0)
+}
+function moveToward(state: OpsState, a: OpsArmyState, target: string): void {
+  if (a.pos.kind === 'city' && a.pos.city === target) return
+  a.order = { task: 'march', target, sinceTick: state.tick, arrived: false, waitTicks: 0 }
+  a.route = []
+}
+function orderPlayer(state: OpsState, target: string, ids?: string[]): void {
+  const list = ids ? ids.map(id => army(state, id)).filter((a): a is OpsArmyState => !!a && !a.removed) : armiesOf(state, state.playerFaction)
+  for (const a of list) moveToward(state, a, target)
+}
+function encircle(state: OpsState, targetId: string, by: string[]): boolean {
+  const target = army(state, targetId)
+  if (!target || target.removed || target.pos.kind !== 'city') return false
+  const ring = state.cities[target.pos.city]
+  if (!ring) return false
+  let present = 0
+  for (const id of by) {
+    const a = army(state, id)
+    if (!a || a.removed || a.pos.kind !== 'city') continue
+    if (dist(state, a.pos.city, target.pos.city) <= 1) present++
+  }
+  return present >= 2
+}
+function enemyKilled(state: OpsState, id: string): boolean {
+  const a = state.armies[id]
+  return !!a && (a.removed || a.troops < 4000)
+}
+
+const rules: OpsRules = {
+  id: 'huaihai-1948',
+
+  opening(state, campaign, narrative): void {
+    addReport(state, 'court', '总前委', narrative.line('opening.situation', {}, 0) || '', 'high', 0, true)
+    addReport(state, 'scout', '徐州', '情报：徐州剿总以第 2、13、16 兵团守徐州，第 7 兵团在新安镇，第 12 兵团由蒙城北上。', 'mid', 1, true)
+    addReport(state, 'note', '总前委', '战役决心：先打第 7 兵团，同时切断徐蚌线。', 'high', 0, false)
+    orderPlayer(state, 'xinan')
+  },
+
+  triggerNode(state, campaign): string | null {
+    const has = (id: string) => state.resolvedNodes.includes(id)
+    const day = state.tick
+    if (!has('d1') && day >= 2) return 'd1'
+    if (!has('d2') && day >= 6) return 'd2'
+    if (!has('d3') && (day >= 9 || state.cities.nianzhuang.besieged)) return 'd3'
+    if (!has('d4') && (day >= 12 || state.cities.jiawang.besieged)) return 'd4'
+    if (!has('d5') && (day >= 15 || state.cities.suxian.besieged)) return 'd5'
+    if (!has('d6') && (day >= 20 || state.cities.shuangduiji.besieged)) return 'd6'
+    if (!has('d7') && (state.cities.xuzhou.owner === 'pla' || day >= 30)) return 'd7'
+    if (!has('d8') && (day >= 40 || state.vars.encircledChen === 1)) return 'd8'
+    return null
+  },
+
+  applyDecision(state, campaign, narrative, nodeId, optionId): void {
+    switch (nodeId) {
+      case 'd1':
+        state.flags.strategy = optionId === 'opt2' ? 2 : 1
+        addReport(state, 'court', '总前委', optionId === 'opt2' ? '决心打大淮海：准备连续围歼。' : '先打第7兵团，视情况扩大。', 'high', 0, true)
+        break
+      case 'd2':
+        if (optionId === 'opt1') {
+          state.vars.cutRail = 1
+          orderPlayer(state, 'suxian', ['pl-c'])
+          addReport(state, 'court', '总前委', '中野向宿县方向行动，准备切断徐蚌线。', 'high', 0, true)
+        }
+        break
+      case 'd3':
+        if (optionId === 'opt1') {
+          state.vars.chase7 = 1
+          orderPlayer(state, 'nianzhuang')
+          addReport(state, 'border', '陇海线', '华野主力沿陇海线追击第7兵团。', 'high', 0, true)
+        } else if (optionId === 'opt2') {
+          orderPlayer(state, 'caobaji')
+          addReport(state, 'court', '总前委', '命令部队先占要点，等敌军停下来再围。', 'mid', 0, true)
+        }
+        break
+      case 'd4':
+        if (optionId === 'opt1') {
+          const defector = army(state, 'kmt-3')
+          if (defector) {
+            defector.troops = 0
+            defector.removed = true
+            state.cities.jiawang.owner = 'pla'
+            state.cities.taierzhuang.owner = 'pla'
+            state.vars.jiawang = 1
+            addReport(state, 'note', '贾汪', '第3绥靖区在贾汪、台儿庄脱离原建制，徐州东北门户打开。', 'high', 0, true)
+          }
+        } else if (optionId === 'opt3') {
+          state.vars.assaultJiawang = 1
+          orderPlayer(state, 'jiawang', ['pl-e', 'pl-l'])
+          addReport(state, 'court', '总前委', '不强求策反，准备强攻贾汪。', 'mid', 0, true)
+        }
+        break
+      case 'd5':
+        if (optionId === 'opt1') {
+          state.vars.takeSuxian = 1
+          orderPlayer(state, 'suxian', ['pl-c', 'pl-l'])
+          addReport(state, 'court', '总前委', '中野攻占宿县，切断徐蚌联系。', 'high', 0, true)
+        }
+        break
+      case 'd6':
+        if (optionId === 'opt1') {
+          state.vars.eat7 = 1
+          orderPlayer(state, 'nianzhuang', ['pl-e', 'pl-e2'])
+          addReport(state, 'court', '总前委', '先吃第7兵团，再打黄维。', 'high', 0, true)
+        } else if (optionId === 'opt2') {
+          state.vars.twoFronts = 1
+          addReport(state, 'court', '总前委', '分兵同时围歼两处，风险很大。', 'mid', 0, true)
+        }
+        break
+      case 'd7':
+        if (optionId === 'opt1') {
+          state.vars.expectSouthwest = 1
+          orderPlayer(state, 'chenguanzhuang', ['pl-e', 'pl-e2', 'pl-l'])
+          addReport(state, 'court', '总前委', '判断徐州集团向西南撤退，主力向永城、陈官庄方向截击。', 'high', 0, true)
+        } else if (optionId === 'opt2') {
+          state.vars.expectSoutheast = 1
+          addReport(state, 'court', '总前委', '判断徐州集团向东南撤退，主力向固镇方向追击。', 'mid', 0, true)
+        }
+        break
+      case 'd8':
+        if (optionId === 'opt1') {
+          state.vars.siegeNotAssault = 1
+          addReport(state, 'court', '陈官庄', '围而不打，先做政治攻势，等待总攻时机。', 'high', 0, true)
+        } else if (optionId === 'opt2') {
+          state.vars.generalAssault = 1
+          addReport(state, 'court', '陈官庄', '立即总攻陈官庄。', 'high', 0, true)
+        }
+        break
+      default:
+        break
+    }
+    void narrative
+  },
+
+  aiTick(state, campaign, narrative): void {
+    // 敌军 AI：徐州集团按兵不动，第7兵团西撤，第12兵团北上
+    if (state.tick % 2 !== 0) return
+    const seven = army(state, 'kmt-7')
+    if (seven && !seven.removed && state.vars.chase7 !== 1 && state.tick > 8) {
+      moveToward(state, seven, 'xuzhou')
+    }
+    const twelve = army(state, 'kmt-12')
+    if (twelve && !twelve.removed && state.tick > 10) {
+      moveToward(state, twelve, 'shuangduiji')
+    }
+    const two = army(state, 'kmt-2')
+    if (two && !two.removed && state.tick > 12 && !state.vars.jiawang) {
+      moveToward(state, two, 'daxujia')
+    }
+    // 包围判定
+    if (seven && !seven.removed && seven.pos.kind === 'city') {
+      const b = encircle(state, 'kmt-7', ['pl-e', 'pl-e2'])
+      if (b && state.vars.encircled7 !== 1) {
+        state.vars.encircled7 = 1
+        addReport(state, 'border', cityName(state, seven.pos.city), '第7兵团被包围。', 'high', 0, true)
+      }
+    }
+    const chen = army(state, 'kmt-13')
+    if (chen && !chen.removed && state.tick > 40 && state.cities.xuzhou.owner !== 'kmt') {
+      if (state.vars.encircledChen !== 1) {
+        state.vars.encircledChen = 1
+        const chenCity = chen.pos.kind === 'city' ? chen.pos.city : undefined
+        addReport(state, 'border', cityName(state, chenCity), '徐州撤退集团被追堵。', 'high', 0, true)
+      }
+    }
+    void narrative
+  },
+
+  onTick(state, campaign, narrative): void {
+    // 补充兵员：解放区动员与俘虏转化（每天少量补充）
+    if (state.tick <= 50) {
+      for (const a of armiesOf(state, state.playerFaction)) {
+        if (a.removed) continue
+        const base = campaign.armies.find(c => c.id === a.id)?.troops ?? a.troops
+        a.troops = Math.min(base, Math.round(a.troops + base * 0.0012))
+      }
+    }
+    // 后勤：支前运力
+    if (state.tick % 6 === 0) {
+      state.vars.logistics = clamp((state.vars.logistics ?? 100) - 3 + (state.vars.siegeNotAssault ? 2 : 0), 0, 100)
+      if ((state.vars.logistics ?? 100) < 40 && state.tick % 12 === 0) {
+        addReport(state, 'court', '后方', '支前运力紧张，前线粮食与弹药吃紧。', 'mid', 1, true)
+      }
+    }
+    // 歼灭判定：被围且兵力锐减的兵团视为覆灭
+    for (const id of ['kmt-7', 'kmt-12', 'kmt-13']) {
+      const a = army(state, id)
+      if (!a || a.removed) continue
+      if (a.troops < 6000) {
+        a.removed = true
+        const label = id === 'kmt-7' ? '第7兵团' : id === 'kmt-12' ? '第12兵团' : '徐州集团'
+        const where = a.pos.kind === 'city' ? a.pos.city : undefined
+        addReport(state, 'border', cityName(state, where), label + '已被歼灭。', 'high', 0, true)
+      }
+    }
+    // 第7兵团被围后继续压缩
+    const seven = army(state, 'kmt-7')
+    if (seven && !seven.removed && state.vars.encircled7 === 1) {
+      damageArmy(seven, 0.02, state)
+    }
+    if ((state.cities.chenguanzhuang.owner === 'pla') && state.vars.generalAssault === 1) {
+      const chen = army(state, 'kmt-13')
+      if (chen && !chen.removed) damageArmy(chen, 0.03, state)
+    }
+    void campaign
+    void narrative
+  },
+
+  checkEnd(state, campaign): void {
+    if (state.over) return
+    const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
+    if (killed >= 3) { end(state, 'full'); return }
+    if (state.cities.bengbu.owner === 'pla' && state.cities.xuzhou.owner === 'pla') { end(state, 'south'); return }
+    if (playerTroops(state) < 210000) { end(state, 'heavy'); return }
+    if (state.tick >= 66) end(state, killed >= 2 ? 'partial' : 'stall')
+  },
+
+  score(state, campaign): OpsScore {
+    const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
+    const hubs = ['xuzhou', 'suxian', 'bengbu'].filter(id => state.cities[id]?.owner === state.playerFaction).length
+    const initial = 480000
+    const hurt = Math.max(0, 1 - playerTroops(state) / initial)
+    const logistics = state.vars.logistics ?? 100
+    const jw = state.vars.jiawang ? 6 : 0
+    const parts: ScorePart[] = [
+      { key: 'killed', label: '歼敌集团', value: killed * 10, max: 30, note: '歼灭 ' + killed + ' 个兵团' },
+      { key: 'hubs', label: '控制枢纽', value: hubs * 8, max: 24, note: '徐州 / 宿县 / 蚌埠' },
+      { key: 'loss', label: '自身伤亡', value: Math.round(clamp(1 - hurt / 0.35, 0, 1) * 15), max: 15, note: '约 ' + Math.round(hurt * 14.5) + ' 万' },
+      { key: 'logistics', label: '支前后勤', value: Math.round((logistics / 100) * 10), max: 10, note: logistics > 60 ? '运力充足' : '运力紧张' },
+      { key: 'jiawang', label: '战场转向', value: jw, max: 6, note: state.vars.jiawang ? '贾汪转向成功' : '未实现' },
+      { key: 'time', label: '战役节奏', value: state.tick < 60 ? 5 : 2, max: 5, note: '历 ' + state.tick + ' 日' },
+    ]
+    const raw = parts.reduce((s, p) => s + p.value, 0)
+    const total = Math.min(100, Math.round(raw * campaign.difficulty[state.difficulty].scoreFactor))
+    const grade: OpsScore['grade'] = total >= 80 ? 'S' : total >= 66 ? 'A' : total >= 54 ? 'B' : total >= 40 ? 'C' : 'D'
+    const endings: Record<string, { title: string; text: string }> = {
+      full: { title: '全胜', text: '三个重兵集团依次被解决，徐州枢纽易手。淮海战役达成全部目标。' },
+      partial: { title: '大胜', text: '两个集团被歼，敌军退守淮河以南。战役获得决定性胜利，但南线仍有遗憾。' },
+      south: { title: '南线突破', text: '徐州、蚌埠相继易手，敌南线体系瓦解。' },
+      heavy: { title: '伤亡过重', text: '虽重创敌军，但自身伤亡超出预期，战役节奏被打乱。' },
+      stall: { title: '僵持', text: '敌军收缩成功，战役未能打成预期的大规模围歼。' },
+    }
+    const ending = endings[state.endingId ?? 'stall'] ?? endings.stall
+    return {
+      grade, total, parts, endingId: state.endingId ?? 'stall',
+      endingTitle: ending.title, endingText: ending.text,
+      deviation: killed >= 3 ? '完成三阶段围歼，与史实主线一致。' : '与史实主线存在偏差。',
+      highlights: [
+        { label: '歼敌兵团', value: String(killed) },
+        { label: '控制枢纽', value: hubs + '/3' },
+        { label: '支前运力', value: Math.round(logistics) + '%' },
+        { label: '历时', value: state.tick + ' 日' },
+      ],
+      lines: dedupe(state.log).slice(-10),
+    }
+  },
+
+  powerMod(state, campaign, armyId, side): number {
+    if (armyId.startsWith('pl-')) return side === 'attacker' ? 1.6 : 1.25
+    return 1
+  },
+
+  hud(state, campaign): { pressureText: string; objectiveText: string; stageText: string } {
+    const killed = ['kmt-7', 'kmt-12', 'kmt-13'].filter(id => { const a = state.armies[id]; return !a || a.removed }).length
+    const stage = state.tick < 17 ? '第一阶段' : state.tick < 40 ? '第二阶段' : '第三阶段'
+    return {
+      pressureText: '歼敌 ' + killed + '/3 集团',
+      objectiveText: state.cities.xuzhou.owner === 'pla' ? '徐州已克' : state.cities.suxian.owner === 'pla' ? '徐蚌线已断' : '徐州未克',
+      stageText: stage,
+    }
+  },
+}
+
+function dedupe(lines: string[]): string[] {
+  const out: string[] = []
+  for (const line of lines) if (out[out.length - 1] !== line) out.push(line)
+  return out
+}
+function end(state: OpsState, id: string): void { state.over = true; state.endingId = id }
+
+export default rules
+export { rules as huaihaiRules }
