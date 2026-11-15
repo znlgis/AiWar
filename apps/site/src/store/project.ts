@@ -86,10 +86,6 @@ function sourceNamesOf(era: string | undefined): Record<string, string> {
   return era && MODERN_ERAS.has(era) ? SOURCE_NAMES_MODERN : SOURCE_NAMES_ANCIENT
 }
 
-const SOURCE_NAMES: Record<string, string> = {
-  scout: '斥候', border: '边亭', deserter: '降卒', merchant: '商旅',
-  envoy: '使节', court: '魏廷', counsel: '军师', note: '军报',
-}
 const CONFIDENCE_NAMES: Record<string, string> = { high: '可信度高', mid: '可信度中', low: '可信度低' }
 const WEATHER_NAMES: Record<string, string> = { clear: '晴', rain: '雨', snow: '雪', fog: '雾' }
 const TASK_NAMES: Record<string, string> = {
@@ -181,6 +177,26 @@ function makeReports(state: { reports: Report[]; tick: number }, names: Record<s
 }
 
 // ---- 围魏救赵（旧引擎）投影 ----
+/**
+ * 旧引擎的政情与战局文案。原文案把国名与都城名写死在字符串里，
+ * 这里改成由调用方传入「敌方名 / 被围都城名」，换战役不会串词。
+ */
+function legacyPressureText(pressure: number, enemy: string): string {
+  if (pressure >= 85) return enemy + '震动朝野'
+  if (pressure >= 55) return enemy + '都城告急'
+  if (pressure >= 25) return enemy + '戒严'
+  return enemy + '未动'
+}
+
+function legacyObjectiveText(
+  state: GameState, campaign: LegacyCampaign, enemyFaction: string, enemy: string, capitalName: string,
+): string {
+  if (state.politics.pangjuanReturning) return enemy + '回师'
+  return state.cities[campaign.roles.zhaoCapital]?.owner === enemyFaction
+    ? capitalName + '已陷'
+    : capitalName + '被围'
+}
+
 export function projectLegacy(
   state: GameState, campaign: LegacyCampaign,
   score: Score | null = null, debrief: Debrief | null = null,
@@ -190,6 +206,9 @@ export function projectLegacy(
   // 否则任一改过阵营 id 的 legacy 战役都会取不到敌方的颜色与称呼。
   const legacyEnemy: FactionId =
     Object.keys(campaign.factions).find(id => id !== campaign.playerFaction) ?? campaign.playerFaction
+  // 政情 / 战局文案要用的两个名字，同样从战役数据取，不在字符串里写死
+  const enemyName = campaign.factions[legacyEnemy]?.short ?? campaign.factions[legacyEnemy]?.name ?? '敌方'
+  const zhaoCapitalName = campaign.cities.find(c => c.id === campaign.roles.zhaoCapital)?.name ?? '都城'
   const cityPos = (id?: string) => {
     const city = campaign.cities.find(c => c.id === id)
     return city ? { x: city.x, y: city.y } : { x: 500, y: 350 }
@@ -263,8 +282,10 @@ export function projectLegacy(
     // 所以这里由调用方传入 finalize() 的结果，否则结算页拿不到分数
     score,
     debrief,
-    pressureText: state.politics.weiPressure >= 85 ? '魏廷震动' : state.politics.weiPressure >= 55 ? '大梁告急' : state.politics.weiPressure >= 25 ? '魏廷戒严' : '魏廷未动',
-    objectiveText: state.politics.pangjuanReturning ? '魏军回师' : state.cities[campaign.roles.zhaoCapital]?.owner === 'wei' ? '邯郸已陷' : '邯郸被围',
+    // 政情与战局文案一律从战役数据推出来：写死「魏廷 / 大梁 / 邯郸」等于把
+    // legacy 引擎锁死在围魏救赵这一役上，换阵营 id 的战役会显示出错误的国名与城名。
+    pressureText: legacyPressureText(state.politics.weiPressure, enemyName),
+    objectiveText: legacyObjectiveText(state, campaign, legacyEnemy, enemyName, zhaoCapitalName),
     playerFaction: campaign.playerFaction,
     playerColor: colorOf(campaign.playerFaction),
     // 敌方 = 势力表里第一个非玩家势力：legacy 只有齐/魏两种，但换战役就不该再写死 'wei'
@@ -385,5 +406,5 @@ export function projectOps(
   }
 }
 
-export { SOURCE_NAMES, CONFIDENCE_NAMES, WEATHER_NAMES, TASK_NAMES, band, foodBand, moraleBand, supplyText }
+export { CONFIDENCE_NAMES, WEATHER_NAMES, TASK_NAMES, band, foodBand, moraleBand, supplyText }
 export type { DifficultyId, OpsRules }

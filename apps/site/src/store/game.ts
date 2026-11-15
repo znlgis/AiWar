@@ -344,11 +344,6 @@ export function backToTitle(): void {
   store.orderOpen = false
 }
 
-export function exitToTitle(): void {
-  save()
-  backToTitle()
-}
-
 /**
  * 放弃当前战局：先去结算页看残局战报，再由玩家决定是否返回标题。
  * 原实现是确认后直接删档回标题，等于放弃的那一局什么都不会留下。

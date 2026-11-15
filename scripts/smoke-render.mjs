@@ -95,6 +95,28 @@ try {
   await shot('smoke-4-battle-later')
 
   if (mounted !== true || !shape?.svg || shape?.roads < 3) { console.error('渲染检查未通过'); code = 1 }
+
+  // 标签遮挡回归：城名/地形名/河名/部队名两两重叠超过 12% 即失败。
+  // 这几类标签各自有避让逻辑，改动布局时很容易只修好其中一对。
+  const collisions = await ev(`(() => {
+    const all = []
+    for (const sel of ['.city-label', '.terrain-label', '.river-label', '.unit-label']) {
+      for (const el of document.querySelectorAll(sel)) {
+        const r = el.getBoundingClientRect()
+        all.push({ t: el.textContent.trim(), x1: r.left, y1: r.top, x2: r.right, y2: r.bottom })
+      }
+    }
+    const hit = (a, b) => { const w = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1); const h = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1); return w > 0 && h > 0 ? w * h : 0 }
+    const out = []
+    for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+      const a = all[i], b = all[j]
+      const area = Math.min((a.x2 - a.x1) * (a.y2 - a.y1), (b.x2 - b.x1) * (b.y2 - b.y1))
+      if (hit(a, b) > area * 0.12) out.push(a.t + ' x ' + b.t)
+    }
+    return out
+  })()`)
+  console.log('label collisions:', Array.isArray(collisions) ? (collisions.length ? JSON.stringify(collisions) : 'none') : collisions)
+  if (Array.isArray(collisions) && collisions.length) { console.error('地图标签重叠 ' + collisions.length + ' 处'); code = 1 }
   if (errors.length) { console.error('页面错误 ' + errors.length + ' 条：'); for (const e of errors.slice(0, 10)) console.error(' - ' + e); code = 1 }
   else console.log('无控制台错误')
 } finally {

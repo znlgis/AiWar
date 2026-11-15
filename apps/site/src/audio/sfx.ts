@@ -93,10 +93,6 @@ export function horn(): void {
   tone(294, 0.5, 'sawtooth', 0.024, 0.28)
 }
 
-export function paper(): void {
-  noise(0.08, 0.032, 2600)
-}
-
 export function win(): void {
   const notes = [392, 494, 587, 784]
   notes.forEach((n, i) => tone(n, 0.3, 'triangle', 0.05, i * 0.09))
@@ -107,4 +103,4 @@ export function lose(): void {
   notes.forEach((n, i) => tone(n, 0.4, 'sine', 0.055, i * 0.12))
 }
 
-export const sfx = { click, drum, horn, paper, win, lose, toggleAudio }
+export const sfx = { click, drum, horn, win, lose, toggleAudio }

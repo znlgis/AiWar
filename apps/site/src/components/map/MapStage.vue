@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { store } from '../../store/game'
 import { curvedRoadPath } from '../../store/mapGeometry'
 
@@ -32,13 +32,74 @@ const svgRef = ref<SVGSVGElement | null>(null)
 // 改成：按优先级依次放置，每个城试下/上/右/左四个候选位，取重叠面积最小的那个；
 // 四个位置都压得厉害时仍保留标记、放弃文字，避免糊成一团。
 type Box = { x1: number; y1: number; x2: number; y2: number }
-const LABEL_FS = 13.5
+
+// —— 字号随容器反算 ——
+// SVG 的 viewBox 是地图坐标系（约 1000x700），字号写死 13.5 会被整体缩放：
+// 390px 手机上实际只有 5px 出头，靠 @media 调 CSS 字号没用（那改的是用户单位）。
+// 所以先量容器实际宽度，再按「想要的 CSS 像素 / 缩放比」反算用户单位。
+const containerWidth = ref(0)
+const unitScale = computed(() => {
+  const w = containerWidth.value
+  const boxW = baseView.value.w
+  if (!w || !boxW) return 1
+  // 夹住上下限，避免极端容器宽度把字放大成标题
+  return Math.max(0.8, Math.min(4, boxW / w))
+})
+const narrow = computed(() => containerWidth.value > 0 && containerWidth.value < 520)
+const labelFs = computed(() => Math.round(( narrow.value ? 12.5 : 13.5 ) * unitScale.value * 10) / 10)
 
 function overlapArea(a: Box, b: Box): number {
   const w = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1)
   const h = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1)
   return w > 0 && h > 0 ? w * h : 0
 }
+
+// 部队名布局：同城多军先扇形排开；不同城的标签挨太近时再换一侧。
+// 只按「同一坐标」分组是不够的——两座城离得近时，两个都在 -22 偏移的
+// 部队名会纵向叠上（实测「齐城军」压「轻车」）。这里落位前查一次碰撞。
+const armyLayout = computed(() => {
+  const fs = Math.round(12.5 * unitScale.value * 10) / 10
+  const seen = new Map<string, number>()
+  const totals = new Map<string, number>()
+  for (const a of ui.value.armies) {
+    const key = Math.round(a.x) + ":" + Math.round(a.y)
+    totals.set(key, (totals.get(key) ?? 0) + 1)
+  }
+  const taken: Box[] = []
+  const items: { id: string; x: number; y: number; labelY: number }[] = []
+  for (const a of ui.value.armies) {
+    const key = Math.round(a.x) + ":" + Math.round(a.y)
+    const index = seen.get(key) ?? 0
+    seen.set(key, index + 1)
+    const total = totals.get(key) ?? 1
+    // 扇形间距跟着标签宽度走：写死 34 而手机字号已到 35，两个名会直接叠上
+    const span = Math.max(34, a.name.length * fs * 1.15)
+    const x = total <= 1 ? a.x : a.x + (index - (total - 1) / 2) * span
+    const preferred = total <= 1 ? -22 : (index % 2 === 0 ? -22 : 32)
+    // 依次试：原侧 → 另一侧 → 更远的上/下
+    const options = [preferred, preferred > 0 ? -22 : 32, -fs * 1.6 - 22, fs * 1.6 + 32]
+    let chosen = preferred
+    for (const dy of options) {
+      const box = boxesOf([{ x, y: a.y + dy, anchor: "middle" }], fs, () => a.name)[0]!
+      const area = (box.x2 - box.x1) * (box.y2 - box.y1)
+      let clash = false
+      for (const other of taken) {
+        const otherArea = (other.x2 - other.x1) * (other.y2 - other.y1)
+        if (overlapArea(box, other) > Math.min(area, otherArea) * 0.12) { clash = true; break }
+      }
+      if (!clash) { chosen = dy; taken.push(box); break }
+    }
+    items.push({ id: a.id, x, y: a.y, labelY: chosen })
+  }
+  return items
+})
+
+const armyLabelBoxes = computed<Box[]>(() => {
+  const fs = Math.round(12.5 * unitScale.value * 10) / 10
+  return armyLayout.value.map(it =>
+    boxesOf([{ x: it.x, y: it.y + it.labelY, anchor: "middle" }], fs, () => ui.value.armies.find(a => a.id === it.id)?.name ?? "")[0]!,
+  )
+})
 
 const labelPlacement = computed(() => {
   const placed: Box[] = []
@@ -49,9 +110,12 @@ const labelPlacement = computed(() => {
     .filter(c => c.known || c.owner === ui.value.playerFaction)
     .slice()
     .sort((a, b) => priority(a) - priority(b))
+  // 碰撞检测必须用实际渲染的字号，否则算出来的框和画出来的字对不上
+  const fs = labelFs.value
+  const pad = Math.max(4, fs * 0.45)
   for (const c of list) {
-    const w = c.name.length * LABEL_FS + 6
-    const h = LABEL_FS + 5
+    const w = c.name.length * fs + pad
+    const h = fs + pad
     const candidates = [
       { dx: 0, dy: 12 + h, anchor: 'middle' },   // 正下方
       { dx: 0, dy: -10 - h, anchor: 'middle' },  // 正上方
@@ -65,6 +129,8 @@ const labelPlacement = computed(() => {
       const box: Box = { x1: left, y1: top, x2: left + w, y2: top + h }
       // 与已放置标签的重叠 + 与城邑标记（半径 8）的重叠，都算代价
       let cost = placed.reduce((sum, r) => sum + overlapArea(box, r), 0)
+      // 也要避开部队名：原先城名只看城名，于是「平陆」会直接压在「齐城军」上
+      for (const unitBox of armyLabelBoxes.value) cost += overlapArea(box, unitBox) * 2
       for (const other of list) {
         if (other.id === c.id) continue
         const marker: Box = { x1: other.x - 8, y1: other.y - 8, x2: other.x + 8, y2: other.y + 8 }
@@ -82,30 +148,121 @@ const labelPlacement = computed(() => {
 })
 
 const labelIds = computed(() => new Set(labelPlacement.value.map(l => l.id)))
+
+// —— 地形 / 河流标签的避让 ——
+// 城名此前只在彼此之间做碰撞检测，地形名（太行、漳水）与河名是独立渲染的，
+// 于是 "太行" 直接压在 "邯郸" 上。这里把已摆放的城名与部队名当作禁区，
+// 地形/河名放不下就整条不画——少一个地名，好过两行字叠成墨块。
+// spacing：CSS 的 letter-spacing（.terrain-label 是 .16em）。不算进去的话
+// 盒子比真实文字窄一截，边缘的重叠会被漏判——实测正好差 15%。
+function boxesOf(labels: { x: number; y: number; anchor: string }[], fs: number, textOf: (l: any) => string, spacing = 0): Box[] {
+  const pad = Math.max(3, fs * 0.35)
+  return labels.map(l => {
+    const w = textOf(l).length * fs * (1 + spacing) + pad
+    // 真实渲染高度含行高（约 1.3em），只按字号估算会让盒子偏小、
+    // 于是 15% 的重叠被判成「没超阈值」而放行。这里按行高留够。
+    const h = fs * 1.3 + pad
+    const left = l.anchor === "start" ? l.x : l.anchor === "end" ? l.x - w : l.x - w / 2
+    const top = l.y - h * 0.8
+    return { x1: left, y1: top, x2: left + w, y2: top + h }
+  })
+}
 const labelBox = computed(() => new Map(labelPlacement.value.map(l => [l.id, l])))
 
-// 同城多支部队时把标记扇形排开：否则「北府兵」与「水军」会叠在同一个点上，谁也看不清
-const armyMarkers = computed(() => {
-  // 先按位置分组一次，再按组内序号排布：原来在 map 里对每支队又 filter 全表，O(n²)
-  const groups = new Map<string, number>()
-  const totals = new Map<string, number>()
-  for (const a of ui.value.armies) {
-    const key = Math.round(a.x) + ':' + Math.round(a.y)
-    totals.set(key, (totals.get(key) ?? 0) + 1)
-  }
-  return ui.value.armies.map(a => {
-    const key = Math.round(a.x) + ':' + Math.round(a.y)
-    const index = groups.get(key) ?? 0
-    groups.set(key, index + 1)
-    const total = totals.get(key) ?? 1
-    if (total <= 1) return { ...a, x: a.x, y: a.y, labelY: -22 }
-    // 同城多军：横向排开，标签上下交错，避免两个名字叠在一起看不清
-    return {
-      ...a,
-      x: a.x + (index - (total - 1) / 2) * 34,
-      y: a.y,
-      labelY: index % 2 === 0 ? -22 : 32,
+// 城名与部队名占掉的区域：地形名与河名都要绕开
+const occupiedBoxes = computed<Box[]>(() => {
+  const cityBoxes = labelPlacement.value.map(l => {
+    const name = ui.value.cities.find(c => c.id === l.id)?.name ?? ""
+    return boxesOf([l], labelFs.value, () => name)[0]!
+  })
+  const armyBoxes = armyMarkers.value.map(a => {
+    const fs = Math.round(12.5 * unitScale.value * 10) / 10
+    return boxesOf([{ x: a.x, y: a.y + a.labelY, anchor: "middle" }], fs, () => a.name)[0]!
+  })
+  return [...cityBoxes, ...armyBoxes]
+})
+
+function blocksOccupied(box: Box): boolean {
+  // 阈值 12%：实测 15%~21% 的重叠在 390px 屏上已经明显压字，
+  // 原先的 30% 等于放行。宁可少画一个地名，也不要两行字叠在一起。
+  const area = (box.x2 - box.x1) * (box.y2 - box.y1)
+  if (area <= 0) return false
+  let overlap = 0
+  for (const other of occupiedBoxes.value) overlap += overlapArea(box, other)
+  return overlap > area * 0.12
+}
+
+// 地形名与河名共用一个顺序分配器：
+// 它们原先各算各的，「太行东麓」（山脊）和「太行东麓道」（关隘）会并排叠着，
+// 因为两者都只避让城名、看不见彼此。这里每放下一个就往 occupied 里记一笔。
+const terrainAndRiverLabels = computed(() => {
+  const fsT = Math.round(10.5 * unitScale.value * 10) / 10
+  const fsR = Math.round(11 * unitScale.value * 10) / 10
+  // 序号顺序 = 绘制顺序，先到先得；近处优先，远处兜底
+  const NUDGES: { dx: number; dy: number }[] = [
+    { dx: 0, dy: 0 },
+    { dx: 0, dy: -1.4 }, { dx: 0, dy: 1.4 },
+    { dx: 1.8, dy: 0 }, { dx: -1.8, dy: 0 },
+    { dx: 0, dy: -2.8 }, { dx: 0, dy: 2.8 },
+    { dx: 3.2, dy: -1.4 }, { dx: -3.2, dy: -1.4 },
+    { dx: 3.2, dy: 1.4 }, { dx: -3.2, dy: 1.4 },
+  ]
+  const taken: Box[] = [...occupiedBoxes.value]
+  // 重叠按「较小一方面积」计：只按候选自身面积算，长地名压住短地名时
+  // 比例会被摊薄（实测「邢」被压 21% 却因长名面积大而放行）
+  const blocked = (box: Box): boolean => {
+    const area = (box.x2 - box.x1) * (box.y2 - box.y1)
+    if (area <= 0) return false
+    for (const other of taken) {
+      const otherArea = (other.x2 - other.x1) * (other.y2 - other.y1)
+      const overlap = overlapArea(box, other)
+      if (overlap > Math.min(area, otherArea) * 0.12) return true
     }
+    return false
+  }
+  const terrain: (typeof ui.value.terrain[number])[] = []
+  const rivers: (typeof roads.value[number] & { labelAt?: { x: number; y: number } })[] = []
+
+  for (const t of ui.value.terrain) {
+    if (!t.labelAt || !t.name) continue
+    const base = t.labelAt
+    for (const n of NUDGES) {
+      const spot = { x: base.x + 2 + n.dx * fsT, y: base.y - 7 + n.dy * fsT }
+      const box = boxesOf([{ x: spot.x, y: spot.y, anchor: "middle" }], fsT, () => t.name!, 0.16)[0]!
+      if (blocked(box)) continue
+      taken.push(box)
+      terrain.push({ ...t, labelAt: spot })
+      break
+    }
+  }
+
+  for (const r of roads.value) {
+    if (r.kind !== "river" || !r.name) continue
+    const cx = (r.x1 + r.x2) / 2
+    const cy = (r.y1 + r.y2) / 2 - 5
+    for (const n of NUDGES) {
+      const spot = { x: cx + n.dx * fsR, y: cy + n.dy * fsR }
+      const box = boxesOf([{ x: spot.x, y: spot.y, anchor: "middle" }], fsR, () => r.name!)[0]!
+      if (blocked(box)) continue
+      taken.push(box)
+      rivers.push({ ...r, labelAt: spot })
+      break
+    }
+  }
+
+  return { terrain, rivers }
+})
+const terrainLabels = computed(() => terrainAndRiverLabels.value.terrain)
+const riverLabels = computed(() => terrainAndRiverLabels.value.rivers)
+
+// 同城多支部队时把标记扇形排开：否则「北府兵」与「水军」会叠在同一个点上，谁也看不清
+// 部队标记直接采用 armyLayout 的结果：位置与标签偏移都只有一份来源，
+// 否则「算碰撞用的位置」和「画出来的位置」会各算各的，避让等于没做。
+const armyMarkers = computed(() => {
+  const byId = new Map(armyLayout.value.map(it => [it.id, it]))
+  return ui.value.armies.map(a => {
+    const it = byId.get(a.id)
+    return { ...a, x: it?.x ?? a.x, y: it?.y ?? a.y, labelY: it?.labelY ?? -22 }
   })
 })
 // 道路样式：ops 战役有 rail（津浦线）/mountain（山道）/water，全部落到默认灰会让
@@ -226,8 +383,33 @@ function zoomButton(factor: number): void {
   zoomAt(v.x + v.w / 2, v.y + v.h / 2, factor)
 }
 
+let resizeObserver: ResizeObserver | null = null
+let onWindowResize: (() => void) | null = null
+onMounted(() => {
+  const el = svgRef.value
+  if (!el) return
+  const measure = () => { containerWidth.value = el.getBoundingClientRect().width }
+  measure()
+  if (typeof ResizeObserver !== "undefined") {
+    // 只在宽度真的变化时写回，避免观察 → 重排 → 再观察的回环
+    resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const next = entry.contentRect.width
+        if (Math.abs(next - containerWidth.value) > 0.5) containerWidth.value = next
+      }
+    })
+    resizeObserver.observe(el)
+  } else {
+    onWindowResize = measure
+    window.addEventListener("resize", onWindowResize)
+  }
+})
+
 onBeforeUnmount(() => {
   pointers.clear()
+  resizeObserver?.disconnect()
+  resizeObserver = null
+  if (onWindowResize) { window.removeEventListener("resize", onWindowResize); onWindowResize = null }
 })
 </script>
 
@@ -292,14 +474,14 @@ onBeforeUnmount(() => {
             />
           </template>
           <text
-            v-for="t in ui.terrain.filter(x => x.labelAt && x.name)"
+            v-for="t in terrainLabels"
             :key="t.key + '-label'"
             class="terrain-label"
-            :x="t.labelAt!.x + 2"
-            :y="t.labelAt!.y - 7"
+            :x="t.labelAt!.x"
+            :y="t.labelAt!.y"
             text-anchor="middle"
-            font-size="10.5"
-            fill="#8b9aa0"
+            :font-size="Math.round(10.5 * unitScale * 10) / 10"
+            fill="#5f6d73"
           >{{ t.name }}</text>
         </g>
         <g>
@@ -330,8 +512,8 @@ onBeforeUnmount(() => {
             :stroke-dasharray="roadStyle(r.kind).dash"
             stroke-linecap="round"
           />
-          <text v-for="r in roads.filter(x => x.kind === 'river' && x.name)" :key="r.id + '-label'"
-            class="river-label" :x="(r.x1 + r.x2) / 2" :y="(r.y1 + r.y2) / 2 - 5" font-size="11" fill="#7295a0" text-anchor="middle">{{ r.name }}</text>
+          <text v-for="r in riverLabels" :key="r.id + '-label'"
+            class="river-label" :x="r.labelAt!.x" :y="r.labelAt!.y" :font-size="Math.round(11 * unitScale * 10) / 10" fill="#4c6f7a" text-anchor="middle">{{ r.name }}</text>
         </g>
         <g>
           <g v-for="c in ui.cities" :key="c.id" :transform="'translate(' + c.x + ',' + c.y + ')'">
@@ -346,26 +528,26 @@ onBeforeUnmount(() => {
                 :x="labelBox.get(c.id)!.x - c.x"
                 :y="labelBox.get(c.id)!.y - c.y"
                 :text-anchor="labelBox.get(c.id)!.anchor"
-                font-size="13.5" fill="#24262a" font-weight="600"
+                :font-size="labelFs" fill="#24262a" font-weight="600"
               >{{ c.name }}</text>
             </template>
             <template v-else>
               <circle r="4.5" fill="#d6d3c9" stroke="#bdb9ad" stroke-width="1" stroke-dasharray="2 2" />
-              <text y="20" text-anchor="middle" font-size="11" fill="#a8a49a">?</text>
+              <text y="20" text-anchor="middle" :font-size="Math.round(11 * unitScale * 10) / 10" fill="#7d7a72">?</text>
             </template>
           </g>
         </g>
         <g>
           <g v-for="t in ui.traces" :key="t.id" :transform="'translate(' + t.x + ',' + t.y + ')'">
             <circle r="17" fill="none" :stroke="ui.traceColor" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.75" />
-            <text class="trace-label" y="-24" text-anchor="middle" font-size="11.5" :fill="ui.traceColor">{{ ui.enemyLabel }} · {{ t.text }}</text>
+            <text class="trace-label" y="-24" text-anchor="middle" :font-size="Math.round(11.5 * unitScale * 10) / 10" :fill="ui.traceColor">{{ ui.enemyLabel }} · {{ t.text }}</text>
           </g>
         </g>
         <g>
           <g v-for="a in armyMarkers" :key="a.id" :transform="'translate(' + a.x + ',' + a.y + ')'">
             <circle r="15" fill="#fffdf8" :stroke="ui.playerColor" stroke-width="2" />
             <circle r="5" :fill="ui.playerColor" />
-            <text class="unit-label" :y="a.labelY" text-anchor="middle" font-size="12.5" fill="#24586f" font-weight="600">{{ a.name }}</text>
+            <text class="unit-label" :y="a.labelY" text-anchor="middle" :font-size="Math.round(12.5 * unitScale * 10) / 10" fill="#24586f" font-weight="600">{{ a.name }}</text>
           </g>
         </g>
       </g>
@@ -399,11 +581,8 @@ text { font-family: var(--font); user-select: none; }
 /* 部队卡片在 left:12px/top:12px（BattleView），提示文字必须让开，否则宽屏上两段文字叠在一起 */
 .map-hint { position: absolute; left: 12px; bottom: 10px; margin: 0; font-size: 11px; color: var(--ink-3); background: rgba(255, 253, 248, 0.82); border-radius: 6px; padding: 2px 7px; pointer-events: none; }
 @media (max-width: 860px) {
-  /* 小屏上字体单位被整体缩得更小，标签反而更容易糊在一起：略放大，靠上面的重叠剔除保证可读 */
-  .city-label { font-size: 15px; }
-  .unit-label { font-size: 13px; }
-  .trace-label { font-size: 12px; }
-  .river-label { font-size: 11px; }
+  /* 字号已按容器宽度反算（见 script 里的 unitScale），不再用 CSS 覆盖：
+     这里改的是用户单位，会被 viewBox 缩放抵消，等于没改。 */
   .map-hint { display: none; }
   .map-tools { right: 8px; bottom: 8px; }
 }

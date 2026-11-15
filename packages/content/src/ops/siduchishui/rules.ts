@@ -741,7 +741,11 @@ const rules: OpsRules = {
       { key: 'saved', label: '兵力保存', value: Math.round(clamp(saved / 0.7, 0, 1) * 25), max: 25, note: '保存约 ' + Math.round(saved * 100) + '%' },
       { key: 'enemy', label: '敌军折损', value: Math.round(clamp(enemyLossTotal / Math.max(1, enemyInitial) / 0.15, 0, 1) * 15), max: 15, note: '约 ' + Math.round(enemyLossTotal / 10000 * 10) / 10 + ' 万' },
       { key: 'feint', label: '欺骗与佯动', value: state.flags.feint ? 15 : state.vars.feintOk ? 8 : 0, max: 15, note: state.flags.feint ? '调动敌军成功' : state.vars.feintOk ? '佯动部分奏效' : '未实施' },
-      { key: 'compact', label: '组织与机动', value: state.vars.compact ? 10 : 4, max: 10, note: state.vars.compact ? '扎西整编' : '未整编' },
+      {
+        key: 'compact', label: '组织与机动', value: state.vars.compact ? 10 : 4, max: 10,
+        // 遵义是这一役的政治转折点：打下它才有后面「四渡」的腾挪空间
+        note: state.vars.compact ? '扎西整编' : state.vars.zunyiWin ? '再占遵义' : '未整编',
+      },
       { key: 'time', label: '行军效率', value: state.tick < 80 ? 5 : 2, max: 5, note: '历 ' + state.tick + ' 日' },
     ]
     const raw = parts.reduce((s, p) => s + p.value, 0)
@@ -766,6 +770,7 @@ const rules: OpsRules = {
       { label: '敌军折损', value: '约 ' + Math.round(enemyLossTotal / 10000 * 10) / 10 + ' 万' },
       { label: '合围度', value: Math.round(state.vars.ring ?? 0) + '%' },
       { label: '偏师', value: nineText },
+      { label: '遵义', value: state.vars.zunyiWin ? '再占（政治转折已成）' : '未占' },
       { label: '历时', value: state.tick + ' 日' },
     ]
     return {
