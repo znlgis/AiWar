@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
-import { extname, join, normalize, resolve } from 'node:path'
+import { extname, normalize, resolve, sep } from 'node:path'
 
 const DIST = resolve(process.argv[2] ?? 'apps/site/dist')
 const PREFIX = '/toy/aiwar-guiling/'
@@ -19,7 +19,8 @@ const server = createServer(async (req, res) => {
   }
   const rel = normalize(decodeURIComponent(url.pathname.slice(PREFIX.length)) || 'index.html')
   const file = resolve(DIST, rel)
-  if (!file.startsWith(DIST)) { res.writeHead(403).end('forbidden'); return }
+  // 必须带分隔符：否则 dist-old/ 这类同前缀的兄弟目录会绕过校验
+  if (file !== DIST && !file.startsWith(DIST + sep)) { res.writeHead(403).end('forbidden'); return }
   try {
     const info = await stat(file)
     if (!info.isFile()) throw new Error('not a file')
@@ -29,6 +30,11 @@ const server = createServer(async (req, res) => {
   } catch {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('404 ' + rel)
   }
+})
+
+server.on('error', (error) => {
+  console.error('预览服务启动失败：' + (error.code === 'EADDRINUSE' ? '端口 ' + PORT + ' 已被占用（用 PORT=xxxx 换一个）' : error.message))
+  process.exit(1)
 })
 
 server.listen(PORT, () => {

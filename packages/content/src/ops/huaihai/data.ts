@@ -53,7 +53,6 @@ const roads: OpsRoadDef[] = [
   { id: 'h13', from: 'guzhen', to: 'bengbu', days: 2, kind: 'rail' },
   { id: 'h14', from: 'suxian', to: 'shuangduiji', days: 2, kind: 'road' },
   { id: 'h15', from: 'shuangduiji', to: 'nanpingji', days: 1, kind: 'river', name: '浍河' },
-  { id: 'h16', from: 'nanpingji', to: 'shuangduiji', days: 1, kind: 'road' },
   { id: 'h17', from: 'xuzhou', to: 'yongcheng', days: 2, kind: 'road' },
   { id: 'h18', from: 'yongcheng', to: 'chenguanzhuang', days: 1, kind: 'road' },
   { id: 'h19', from: 'xuzhou', to: 'bengbu', days: 5, kind: 'rail' },
@@ -94,7 +93,7 @@ const roads: OpsRoadDef[] = [
 // 部队：华野 4 支（主力、东线、苏北、特纵）、中野 1 支、地方武装 1 支；对方按兵团编制。
 // 新增的 4 支部队都放在既有部队的同一城邑或侧翼，避免开局就凭空多出一场接战。
 const armies: OpsArmyDef[] = [
-  { id: 'pl-e', name: '华野主力', faction: 'pla', commander: '华野指挥部', troops: 220000, type: 'mixed', morale: 82, fatigue: 8, training: 1.15, foodDays: 26, city: 'pizhou', stealth: 0.3 },
+  { id: 'pl-e', name: '华野主力', faction: 'pla', commander: '华野指挥部', troops: 220000, type: 'mixed', morale: 82, fatigue: 8, training: 1.15, foodDays: 24, city: 'pizhou', stealth: 0.3 },
   { id: 'pl-e2', name: '华野东线兵团', faction: 'pla', commander: '东线兵团', troops: 80000, type: 'infantry', morale: 80, fatigue: 8, training: 1.1, foodDays: 20, city: 'xinan', stealth: 0.35 },
   { id: 'pl-c', name: '中野主力', faction: 'pla', commander: '中野指挥部', troops: 120000, type: 'mixed', morale: 80, fatigue: 12, training: 1.1, foodDays: 18, city: 'suxian', stealth: 0.3 },
   { id: 'pl-l', name: '地方武装', faction: 'pla', commander: '军区部队', troops: 60000, type: 'infantry', morale: 74, fatigue: 6, training: 0.95, foodDays: 16, city: 'yongcheng', stealth: 0.4 },
@@ -238,9 +237,9 @@ const decisions: DecisionNodeDef[] = [
 
 const difficulty: Record<DifficultyId, Difficulty> = {
   hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
+  normal: { id: 'normal', name: '普通', scoreFactor: 1.0, label: '情报有噪声，敌军会收缩', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', scoreFactor: 1.04, label: '假报增多，敌军会突围', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', scoreFactor: 1.08, label: '情报含混，多路反扑', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
 }
 
 export const huaihaiCampaign: OpsCampaign = {
@@ -305,4 +304,3 @@ export const huaihaiCampaign: OpsCampaign = {
   rulesId: 'huaihai-1948',
 }
 
-export { cities as huaihaiCities, roads as huaihaiRoads }

@@ -37,9 +37,11 @@ export function toggleAudio(): void {
   if (audioState.enabled) click()
 }
 
-function envelope(c: AudioContext, gain: number, attack: number, release: number): GainNode {
+function envelope(c: AudioContext, gain: number, attack: number, release: number, delay = 0): GainNode {
   const g = c.createGain()
-  const t = c.currentTime
+  // 包络必须从「这个音符真正起振的时刻」起算：原来固定用 currentTime，
+  // 延后发声的音符（胜利音第 4 音、号角第三音）起振时包络早已衰减到静音。
+  const t = c.currentTime + delay
   g.gain.setValueAtTime(0.0001, t)
   g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t + attack)
   g.gain.exponentialRampToValueAtTime(0.0001, t + attack + release)
@@ -52,7 +54,7 @@ function tone(freq: number, duration: number, type: OscillatorType, gain: number
   const osc = c.createOscillator()
   osc.type = type
   osc.frequency.setValueAtTime(freq, c.currentTime + delay)
-  const g = envelope(c, gain, 0.012, duration)
+  const g = envelope(c, gain, 0.012, duration, delay)
   osc.connect(g).connect(c.destination)
   osc.start(c.currentTime + delay)
   osc.stop(c.currentTime + delay + duration + 0.05)

@@ -8,12 +8,11 @@ import DecisionModal from '../components/decisions/DecisionModal.vue'
 import OrderComposer from '../components/decisions/OrderComposer.vue'
 
 const ui = computed(() => store.ui!)
-const speedLabel = computed(() => ui.value.speed === 1 ? '×1' : ui.value.speed === 0.5 ? '×2' : '×4')
+const speedLabel = computed(() => '×' + ui.value.speed)
 function pause(): void { stop() }
 function cycleSpeed(): void {
   if (!store.ui) return
-  const next = store.ui.speed === 1 ? 0.5 : store.ui.speed === 0.5 ? 0.25 : 1
-  setSpeed(next)
+  setSpeed(store.ui.speed === 1 ? 2 : store.ui.speed === 2 ? 4 : 1)
 }
 </script>
 

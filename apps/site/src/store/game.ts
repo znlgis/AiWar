@@ -5,7 +5,7 @@ import type {
 import {
   advanceDay, advanceOpsDay, canIssue, canIssueOpsOrder, createGame, createOpsState, finalize,
   issueOrder, issueOpsOrder, orderSentence, resolveDecision, resolveOpsNode,
-  seedOpening, timeoutNode, timeoutOpsNode, debriefForLegacy, debriefForOps,
+  seedOpening, timeoutNode, timeoutOpsNode, debriefForLegacy, debriefForOps, restoreSave,
 } from '@aiwar/sim'
 import { PACKS, getPack } from '@aiwar/content'
 import { projectLegacy, projectOps, type UiState, type ViewName } from './project'
@@ -174,16 +174,20 @@ function tickOnce(): void {
   }
 }
 
+function clearDecisionTimer(): void {
+  if (decisionTimer !== null) { window.clearInterval(decisionTimer); decisionTimer = null }
+}
+
 function startDecisionTimer(): void {
   if (!store.ui) return
   const seconds = packDifficulty().decisionSeconds
   store.ui.decisionSeconds = seconds
-  if (decisionTimer) window.clearInterval(decisionTimer)
+  clearDecisionTimer()
   decisionTimer = window.setInterval(() => {
-    if (!store.ui) { window.clearInterval(decisionTimer!); return }
+    if (!store.ui) { clearDecisionTimer(); return }
     store.ui.decisionSeconds -= 1
     if (store.ui.decisionSeconds <= 0) {
-      window.clearInterval(decisionTimer!)
+      clearDecisionTimer()
       timeoutCurrent()
       store.ui = projectNow()
       save()
@@ -212,12 +216,20 @@ export function startGame(load = false, packId?: string): void {
     try {
       const raw = localStorage.getItem(SAVE_PREFIX + pack.id)
       if (raw) {
-        const data = JSON.parse(raw) as { v: number; difficulty: DifficultyId; seed: number; state: unknown }
-        if (data.v === 2 && data.state) {
+        const data = JSON.parse(raw) as { v: number; packId?: string; engine?: string; difficulty: DifficultyId; seed: number; state: unknown }
+        // 存档必须与当前战役包同源：否则别的引擎 / 别的战役的档会被硬转成当前状态，
+        // projectLegacy 里 state.cities[def.id] 一取不到值就抛错，界面停在空壳。
+        const samePack = (data.packId ?? pack.id) === pack.id && (data.engine ?? pack.engine) === pack.engine
+        if (data.v === 2 && data.state && samePack) {
           store.difficulty = data.difficulty ?? store.difficulty
           store.seed = data.seed ?? newSeed()
-          if (pack.engine === 'legacy') legacy = data.state as GameState
-          else ops = data.state as OpsState
+          if (pack.engine === 'legacy') {
+            // 走内核的 restoreSave：它会用新版本初始状态兜底缺省字段，并补齐四个账本
+            legacy = restoreSave(data.state, pack.campaign)
+            if (!legacy) ops = null
+          } else {
+            ops = data.state as OpsState
+          }
         }
       }
     } catch { legacy = null; ops = null }
@@ -240,11 +252,14 @@ export function startGame(load = false, packId?: string): void {
 
 export function start(): void {
   if (!store.ui) return
+  // 有待决节点时必须先定策：否则反复点「继续」会把决策倒计时重置回满值
+  if (store.ui.pendingNode) return
   store.ui.paused = false
   if (timer) window.clearInterval(timer)
   // 650ms/日 会让 70 天的战役 50 秒通关，战报来不及读。放慢到约 2 秒/日，
   // 单局回到数分钟量级，×2/×4 加速这时才有意义。
-  timer = window.setInterval(tickOnce, store.ui.speed * 2000)
+  // speed 是加速倍数：×1 = 2000ms/日，×2 = 1000ms，×4 = 500ms
+  timer = window.setInterval(tickOnce, Math.max(200, 2000 / Math.max(0.25, store.ui.speed)))
 }
 
 export function stop(): void {
@@ -276,7 +291,7 @@ export function choose(optionId: string): void {
   if (!store.ui?.pendingNode) return
   sfx.click()
   stop()
-  if (decisionTimer) window.clearInterval(decisionTimer)
+  clearDecisionTimer()
   const pack = currentPack()
   if (pack.engine === 'legacy' && legacy && legacy.pendingNode) {
     resolveDecision(legacy, pack.campaign, pack.narrative, legacy.pendingNode, optionId)
@@ -324,7 +339,7 @@ export function submitOrder(draft: OrderDraft): string | null {
 
 export function backToTitle(): void {
   stop()
-  if (decisionTimer) window.clearInterval(decisionTimer)
+  clearDecisionTimer()
   store.view = 'title'
   store.orderOpen = false
 }
@@ -342,7 +357,7 @@ export function abandon(): void {
   if (!activeState()) { backToTitle(); return }
   if (!window.confirm('放弃当前战局？会先生成本局的残局战报。')) return
   try { localStorage.removeItem(SAVE_PREFIX + currentPack().id) } catch { /* 忽略 */ }
-  if (decisionTimer) window.clearInterval(decisionTimer)
+  clearDecisionTimer()
   refreshSaves()
   finish(true)
 }

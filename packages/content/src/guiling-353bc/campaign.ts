@@ -189,7 +189,7 @@ const difficulties: Record<DifficultyId, Difficulty> = {
   hist: {
     id: 'hist', name: '史实', label: '更准的情报，更宽的决策窗口', intelDelay: 1, strengthError: 0.2,
     falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.02,
-    decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 0.92, defaultQuality: 0.9,
+    decisionSeconds: 120, supplyFactor: 0.9, scoreFactor: 1.0, defaultQuality: 0.9,
   },
   normal: {
     id: 'normal', name: '普通', label: '情报有噪声，魏军会用计', intelDelay: 2, strengthError: 0.35,
@@ -199,12 +199,14 @@ const difficulties: Record<DifficultyId, Difficulty> = {
   hard: {
     id: 'hard', name: '困难', label: '假报增多，魏军会识破佯动', intelDelay: 3, strengthError: 0.5,
     falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.32,
-    decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1.08, defaultQuality: 0.35,
+    decisionSeconds: 80, supplyFactor: 1.1, scoreFactor: 1.04, defaultQuality: 0.35,
   },
   hell: {
     id: 'hell', name: '地狱', label: '情报含混，魏军会反设伏', intelDelay: 4, strengthError: 0.65,
     falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.5,
-    decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1.15, defaultQuality: 0.1,
+    // 高难度靠「更难打」体现，不靠把分数乘大：原来的 1.15 会把地狱难度的
+    // 战绩抬过史实难度，与「史实难度得分不低于地狱」的回归约定相冲突。
+    decisionSeconds: 60, supplyFactor: 1.25, scoreFactor: 1.08, defaultQuality: 0.1,
   },
 }
 

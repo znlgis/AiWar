@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { store, choose, currentPack } from '../../store/game'
 
 const ui = computed(() => store.ui!)
 const selected = ref<string>('')
+const sheet = ref<HTMLElement | null>(null)
+// 节点会换、组件不会卸载：不清空选择的话，新节点会带着上一节点的选择，
+// 而各战役的选项 id 都是 opt1..opt4，确认键直接可点，等于替玩家选了。
+watch(() => ui.value.pendingNode, () => { selected.value = '' })
 const pct = computed(() => {
   const total = currentPack().difficulty[store.difficulty].decisionSeconds
   return Math.max(0, Math.min(100, (ui.value.decisionSeconds / total) * 100))
@@ -12,14 +16,38 @@ function confirm() {
   if (!selected.value) return
   choose(selected.value)
 }
+
+// 无障碍：遮罩能挡鼠标但挡不住 Tab，打开时把焦点收进面板，
+// Esc 把焦点拉回第一个选项（决策不可关闭，只能定策或等逾时）。
+function focusFirstOption(): void {
+  const first = sheet.value?.querySelector<HTMLElement>('.option')
+  ;(first ?? sheet.value)?.focus()
+}
+function onKeydown(evt: KeyboardEvent): void {
+  if (evt.key === 'Escape') { evt.preventDefault(); focusFirstOption() }
+}
+watch(() => ui.value.pendingNode, async (id) => {
+  if (!id) return
+  await nextTick()
+  focusFirstOption()
+})
+onMounted(() => { document.addEventListener('keydown', onKeydown) })
+onBeforeUnmount(() => { document.removeEventListener('keydown', onKeydown) })
 </script>
 
 <template>
   <div v-if="ui.pendingNode" class="overlay">
-    <div class="sheet">
+    <div
+      ref="sheet"
+      class="sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="decision-title"
+      tabindex="-1"
+    >
       <header class="head">
         <span class="kicker">关键决策</span>
-        <h2>{{ ui.nodeTitle }}</h2>
+        <h2 id="decision-title">{{ ui.nodeTitle }}</h2>
         <div class="timer"><span :style="{ width: pct + '%' }" /></div>
       </header>
       <p class="prompt">{{ ui.nodePrompt }}</p>
@@ -40,7 +68,7 @@ function confirm() {
         </button>
       </div>
       <footer class="foot">
-        <span class="count">还剩 {{ ui.decisionSeconds }} 秒，逾时依令而行并折损一枚军令牌</span>
+        <span class="count" role="timer" aria-live="polite">还剩 {{ ui.decisionSeconds }} 秒，逾时依令而行并折损一枚军令牌</span>
         <button class="btn primary" :disabled="!selected" @click="confirm">确认此策</button>
       </footer>
     </div>

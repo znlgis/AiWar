@@ -49,7 +49,6 @@ const roads: OpsRoadDef[] = [
   { id: 'c11', from: 'chaisang', to: 'jianye', days: 3, kind: 'river' },
   { id: 'c12', from: 'jianye', to: 'hefei', days: 4, kind: 'road' },
   { id: 'c13', from: 'hefei', to: 'xiakou', days: 5, kind: 'road' },
-  { id: 'c14', from: 'fankou', to: 'xiakou', days: 1, kind: 'river' },
   { id: 'c15', from: 'yiling', to: 'jiangling', days: 2, kind: 'river' },
   { id: 'c16', from: 'yiling', to: 'wulin', days: 3, kind: 'river' },
   // —— 新增 34 路 ——
@@ -220,9 +219,9 @@ const decisions: DecisionNodeDef[] = [
 
 const difficulty: Record<DifficultyId, Difficulty> = {
   hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，曹军轻敌', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，曹军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，曹军有防备', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，风向难测', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
+  normal: { id: 'normal', name: '普通', scoreFactor: 1.0, label: '情报有噪声，曹军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', scoreFactor: 1.04, label: '假报增多，曹军有防备', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', scoreFactor: 1.08, label: '情报含混，风向难测', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
 }
 
 export const chibiCampaign: OpsCampaign = {

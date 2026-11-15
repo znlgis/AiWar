@@ -103,8 +103,8 @@ const armies: OpsArmyDef[] = [
   { id: 'jin-lao', name: '刘牢之部', faction: 'jin', commander: '广陵相', troops: 5000, type: 'cavalry', morale: 82, fatigue: 6, training: 1.28, foodDays: 18, city: 'jingkou', stealth: 0.45 },
   { id: 'jin-yan', name: '谢琰部', faction: 'jin', commander: '辅国将军', troops: 6000, type: 'mixed', morale: 78, fatigue: 8, training: 1.15, foodDays: 18, city: 'jiankang', stealth: 0.35 },
   { id: 'jin-hu', name: '胡彬水军', faction: 'jin', commander: '龙骧将军', troops: 5000, type: 'fleet', morale: 74, fatigue: 8, training: 1.05, foodDays: 16, city: 'huaiyin', stealth: 0.4 },
-  { id: 'qin-front', name: '秦军前锋', faction: 'qin', commander: '前锋都督', troops: 250000, type: 'mixed', morale: 76, fatigue: 8, training: 1.0, foodDays: 24, city: 'yingkou', stealth: 0.1 },
-  { id: 'qin-main', name: '秦军本营', faction: 'qin', commander: '大秦天王', troops: 420000, type: 'mixed', morale: 74, fatigue: 6, training: 0.95, foodDays: 26, city: 'xiangcheng', stealth: 0.1 },
+  { id: 'qin-front', name: '秦军前锋', faction: 'qin', commander: '前锋都督', troops: 250000, type: 'mixed', morale: 76, fatigue: 8, training: 1.0, foodDays: 22, city: 'yingkou', stealth: 0.1 },
+  { id: 'qin-main', name: '秦军本营', faction: 'qin', commander: '大秦天王', troops: 420000, type: 'mixed', morale: 74, fatigue: 6, training: 0.95, foodDays: 22, city: 'xiangcheng', stealth: 0.1 },
   { id: 'qin-liang', name: '洛涧守军', faction: 'qin', commander: '梁成部', troops: 50000, type: 'infantry', morale: 70, fatigue: 6, training: 0.95, foodDays: 18, city: 'luojian', stealth: 0.15 },
   { id: 'qin-east', name: '东路秦军', faction: 'qin', commander: '幽冀兵', troops: 30000, type: 'infantry', morale: 68, fatigue: 8, training: 0.9, foodDays: 18, city: 'pengcheng', stealth: 0.1 },
   { id: 'qin-west', name: '西线秦军', faction: 'qin', commander: '西线都督', troops: 30000, type: 'mixed', morale: 70, fatigue: 8, training: 0.95, foodDays: 18, city: 'xiangyang', stealth: 0.1 },
@@ -231,9 +231,9 @@ const decisions: DecisionNodeDef[] = [
 
 const difficulty: Record<DifficultyId, Difficulty> = {
   hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，秦军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
-  normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，秦军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
-  hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，秦军会稳阵', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
-  hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，秦军不轻易退', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
+  normal: { id: 'normal', name: '普通', scoreFactor: 1.0, label: '情报有噪声，秦军会试探', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+  hard: { id: 'hard', name: '困难', scoreFactor: 1.04, label: '假报增多，秦军会稳阵', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+  hell: { id: 'hell', name: '地狱', scoreFactor: 1.08, label: '情报含混，秦军不轻易退', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
 }
 
 export const feishuiCampaign: OpsCampaign = {

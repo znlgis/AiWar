@@ -85,13 +85,13 @@ export function battleTick(state: GameState, campaign: Campaign, narrative: Narr
     for (const a of atk) {
       const lost = applyLosses(a, atkRatio)
       atkLost += lost
-      state.casualties[a.faction === 'qi' ? 'qi' : 'wei'] += lost
+      state.casualties[a.faction] = (state.casualties[a.faction] ?? 0) + lost
       a.morale = clamp(a.morale - 2.5 - (battle.ambush && battle.days === 0 ? 8 : 0), 5, 100)
     }
     for (const d of def) {
       const lost = applyLosses(d, defRatio)
       defLost += lost
-      state.casualties[d.faction === 'qi' ? 'qi' : 'wei'] += lost
+      state.casualties[d.faction] = (state.casualties[d.faction] ?? 0) + lost
       d.morale = clamp(d.morale - 2, 5, 100)
     }
     battle.days += 1
@@ -216,7 +216,7 @@ export function siegeTick(state: GameState, campaign: Campaign, narrative: Narra
     city.morale = clamp(city.morale - 1, 5, 100)
     for (const attacker of besiegers) {
       const lost = applyLosses(attacker, clamp(0.004 / ratio, 0.001, 0.02) * (assault ? 1.5 : 1))
-      state.casualties[attacker.faction === 'qi' ? 'qi' : 'wei'] += lost
+      state.casualties[attacker.faction] = (state.casualties[attacker.faction] ?? 0) + lost
       attacker.foodDays = Math.max(0, attacker.foodDays - 0.8)
     }
     const canCapture = assault || besiegers.some(a => a.id === weiId)

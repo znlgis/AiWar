@@ -253,7 +253,7 @@ const rules: OpsRules = {
           if (wu) { wu.troops = Math.round(wu.troops * 0.85); wu.morale = clamp(wu.morale - 8, 5, 100) }
           state.cities.loushanguan.owner = 'red'
           state.cities.zunyi.owner = 'red'
-          state.vars.zhunyiWin = 1
+          state.vars.zunyiWin = 1
           say(state, narrative, 'border', '遵义', 'sidu.zunyi_win', {}, 'high', 0, true)
         } else if (optionId === 'opt2') {
           // 停手巩固：战果只到娄山关，黔军残部得以收拢，但部队也休整了一天
@@ -681,10 +681,12 @@ const rules: OpsRules = {
         if (needsBridge) {
           state.vars.bridge = (state.vars.bridge ?? 0) + 1
           if (state.vars.bridge === 1) say(state, narrative, 'court', '江岸', 'sidu.ferry_limit', {}, 'mid', 0, true)
+          // 架桥是「第一步」而不是终点：桥架好后要转为渡运，否则选了龙街渡就永远渡不完
+          if ((state.vars.bridge ?? 0) >= 2) state.vars.ferry = Math.min(total, crossing + 1)
         } else {
           state.vars.ferry = Math.min(total, crossing + 1)
         }
-        if (state.vars.ferry === 1) say(state, narrative, 'court', '皎平渡', 'politics.ferry', { n: '七' }, 'high', 0, true)
+        if (state.vars.ferry === 1) say(state, narrative, 'court', '皎平渡', 'politics.ferry', {}, 'high', 0, true)
         if (state.vars.ferry === 1 && (state.vars.shipsTold ?? 0) === 0) {
           state.vars.shipsTold = 1
           say(state, narrative, 'court', '皎平渡', 'sidu.ferry_ships', {}, 'high', 0, true)
@@ -795,7 +797,7 @@ const rules: OpsRules = {
     if (state.over) return
     if (by === state.playerFaction) {
       say(state, narrative, 'border', city.name, 'siege.fall', { city: city.name, side: '我军' }, 'high', 0, true)
-      if (city.id === 'zunyi') state.vars.zhunyiWin = 1
+      if (city.id === 'zunyi') state.vars.zunyiWin = 1
       // 打下大城才谈得上「精神一振」：小据点不值得单独报一条士气
       if (city.kind === 'capital' || city.initialGarrison >= 2000) {
         state.vars.bigWins = (state.vars.bigWins ?? 0) + 1

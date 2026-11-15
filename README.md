@@ -36,6 +36,14 @@ pnpm check        # typecheck + test + build + zip + check
 pnpm build && pnpm preview:toy   # http://127.0.0.1:4173/toy/aiwar-guiling/index.html
 ```
 
+预览跑着时，可以做一次真机渲染冒烟（需要本机有 Edge 或 Chrome）：
+
+```bash
+node scripts/smoke-render.mjs    # 自动找浏览器；截图落在 .shots/，有报错则退出码非 0
+```
+
+它检查 Vue 是否真的挂载、地图/战报是否渲染出内容、速度控件是否按 ×1→×2→×4 循环，并收集控制台异常。
+
 ## 目录
 
 ```
@@ -49,7 +57,7 @@ release/            # 发布物料：aiwar-guiling.zip、poster.png、icon.png
 
 ## 发布
 
-`release/aiwar-guiling.zip` 直接上传即可（ZIP 根目录为 index.html，整包约 60 KB）。封面 `release/poster.png`（1200×900，4:3），图标 `release/icon.png`（512×512）按发布页要求填写。
+`release/aiwar-guiling.zip` 直接上传即可（ZIP 根目录为 index.html，整包约 157 KB）。封面 `release/poster.png`（1200×900，4:3），图标 `release/icon.png`（512×512）按发布页要求填写。
 
 ## 文档
 

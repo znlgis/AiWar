@@ -337,7 +337,8 @@ export interface GameState {
   }
   weather: Weather
   weatherNext: number
-  casualties: { qi: number; wei: number; zhao: number }
+  /** 各阵营累计折损。用索引签名而非固定三键：战役可以自带任意阵营 id */
+  casualties: Record<FactionId, number>
   citiesTaken: string[]
   decisionWindowEnd: number | null
   over: boolean
@@ -371,5 +372,3 @@ export interface TickResult {
   over: boolean
   events: string[]
 }
-
-export const FACTIONS: FactionId[] = ['qi', 'wei', 'zhao', 'song', 'wei_state', 'chu', 'qin']

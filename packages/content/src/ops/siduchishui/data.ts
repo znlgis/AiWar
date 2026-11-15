@@ -4,8 +4,8 @@ const cities: OpsCityDef[] = [
   { id: 'zunyi', name: '遵义', x: 500, y: 330, owner: 'red', kind: 'capital', terrain: 'city', garrison: 2000, wall: 1.6, grain: 20 },
   { id: 'loushanguan', name: '娄山关', x: 500, y: 268, owner: 'red', kind: 'fort', terrain: 'mountain', garrison: 800, wall: 2.2, grain: 8 },
   { id: 'tongzi', name: '桐梓', x: 512, y: 208, owner: 'red', kind: 'city', terrain: 'mountain', garrison: 600, wall: 1.2, grain: 12 },
-  { id: 'songkan', name: '松坎', x: 522, y: 140, owner: 'kmt', kind: 'city', terrain: 'mountain', garrison: 1500, wall: 1.2, grain: 12 },
-  { id: 'tucheng', name: '土城', x: 332, y: 300, owner: 'kmt', kind: 'city', terrain: 'river', garrison: 2500, wall: 1.2, grain: 14 },
+  { id: 'songkan', name: '松坎', x: 522, y: 140, owner: 'hunan', kind: 'city', terrain: 'mountain', garrison: 1500, wall: 1.2, grain: 12 },
+  { id: 'tucheng', name: '土城', x: 332, y: 300, owner: 'sichuan', kind: 'city', terrain: 'river', garrison: 2500, wall: 1.2, grain: 14 },
   { id: 'yuanhou', name: '元厚', x: 300, y: 328, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 500, wall: 0.8, grain: 6 },
   { id: 'chishuicheng', name: '赤水城', x: 248, y: 318, owner: 'sichuan', kind: 'city', terrain: 'city', garrison: 4000, wall: 1.6, grain: 25 },
   { id: 'taipingdu', name: '太平渡', x: 282, y: 378, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 600, wall: 0.8, grain: 8 },
@@ -114,7 +114,7 @@ const armies: OpsArmyDef[] = [
 
 const decisions = [
   {
-    id: 'd1', title: '战略方向', prompt: '遵义会议后，全军约三万人，四面皆有敌军。下一步往哪里走？',
+    id: 'd1', title: '战略方向', prompt: '遵义会议后，全军约四万人，四面皆有敌军。下一步往哪里走？',
     options: [
       { id: 'opt1', label: '北渡长江，与红四方面军会合', desc: '既定方向，但川军已在沿江布防，路上必有硬仗。', hint: '战略目标：渡江。', recommended: true },
       { id: 'opt2', label: '留在川黔边打游击', desc: '暂时避开敌军主力，但补给困难，且难以达成战略转移。', hint: '难以取得最终胜利。' },
@@ -233,12 +233,12 @@ export const siduCampaign: OpsCampaign = {
     title: '四渡赤水',
     subtitle: '中央红军长征 · 1935 年 1—5 月',
     era: '长征',
-    premise: '三万对四十万，在川黔滇边反复穿插，用四次渡河撕开合围。',
+    premise: '四万对四十万，在川黔滇边反复穿插，用四次渡河撕开合围。',
     dateLabel: '1935 年 1 月 · 遵义会议后',
     startLabel: '第一日',
     playerRole: '中央红军指挥层（军委决策席位，不具名）',
     background:
-      '遵义会议后，中央红军约三万人，北渡长江与红四方面军会合是既定方向。国民党军以四十万之众分路追堵：川军封锁长江，中央军向北压迫，滇军封西侧，黔军堵南面，湘军在东线张网。红军真正的生路不在硬拼，而在于反复机动、制造假象，从各派系的接缝里穿出去。',
+      '遵义会议后，中央红军约四万人，北渡长江与红四方面军会合是既定方向。国民党军以四十万之众分路追堵：川军封锁长江，中央军向北压迫，滇军封西侧，黔军堵南面，湘军在东线张网。红军真正的生路不在硬拼，而在于反复机动、制造假象，从各派系的接缝里穿出去。',
     objective: '在追兵合围之前渡过金沙江，保存主力；或以佯动与机动创造战略转移的空间。',
     infoTip: '战报有来源与可信度，错误情报不会标注"这是错的"。敌军各派系行动并不统一——这既是威胁，也是缝隙。',
     dossier: [
@@ -269,9 +269,9 @@ export const siduCampaign: OpsCampaign = {
   decisions,
   difficulty: {
     hist: { id: 'hist', name: '史实', scoreFactor: 1, label: '情报较准，敌军协同较慢', intelDelay: 1, strengthError: 0.2, falseReportPerTenDays: 0, scoutEfficiency: 1.3, enemyIntelQuality: 0.8, feintBreakChance: 0.05, decisionSeconds: 120, supplyFactor: 0.9, defaultQuality: 0.9 },
-    normal: { id: 'normal', name: '普通', scoreFactor: 1, label: '情报有噪声，敌军会追堵', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
-    hard: { id: 'hard', name: '困难', scoreFactor: 1.08, label: '假报增多，敌军会预判', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
-    hell: { id: 'hell', name: '地狱', scoreFactor: 1.15, label: '情报含混，多路合围', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
+    normal: { id: 'normal', name: '普通', scoreFactor: 1.0, label: '情报有噪声，敌军会追堵', intelDelay: 2, strengthError: 0.35, falseReportPerTenDays: 0.5, scoutEfficiency: 1.0, enemyIntelQuality: 1.0, feintBreakChance: 0.2, decisionSeconds: 100, supplyFactor: 1.0, defaultQuality: 0.65 },
+    hard: { id: 'hard', name: '困难', scoreFactor: 1.04, label: '假报增多，敌军会预判', intelDelay: 3, strengthError: 0.5, falseReportPerTenDays: 1.2, scoutEfficiency: 0.8, enemyIntelQuality: 1.2, feintBreakChance: 0.4, decisionSeconds: 80, supplyFactor: 1.1, defaultQuality: 0.35 },
+    hell: { id: 'hell', name: '地狱', scoreFactor: 1.08, label: '情报含混，多路合围', intelDelay: 4, strengthError: 0.65, falseReportPerTenDays: 2, scoutEfficiency: 0.65, enemyIntelQuality: 1.4, feintBreakChance: 0.6, decisionSeconds: 60, supplyFactor: 1.25, defaultQuality: 0.1 },
   },
   balance: {
     battleIntensity: 0.6,

@@ -34,7 +34,9 @@ export function supplyStateOf(state: GameState, armyId: string, campaign: Campai
 
 export function logisticsTick(state: GameState, campaign: Campaign, narrative: { line: (k: string, p: Record<string, string>, s: number) => string }): void {
   const diff = campaign.difficulty[state.difficulty]
-  for (const army of livingArmies(state, armyFactionList(state))) {
+  // 原来只遍历「第一支部队所属阵营」，于是只有齐军消耗粮草、魏军永不断粮，
+  // 断粮分支对敌方形同虚设。补给是通用规则，必须对场上所有部队生效。
+  for (const army of allLivingArmies(state)) {
     if (army.removed || army.inBattle) continue
     army.supply = supplyStateOf(state, army.id, campaign)
     const cityId = army.pos.city
@@ -54,7 +56,8 @@ export function logisticsTick(state: GameState, campaign: Campaign, narrative: {
     if (army.foodDays <= 0) {
       army.morale = clamp(army.morale - 2, 5, 100)
       const lost = applyLosses(army, campaign.balance.desertionPerDay)
-      state.casualties[army.faction === 'qi' ? 'qi' : 'wei'] += lost
+      // 折损记到该部队真正的阵营上：写死 qi/wei 会把第三方阵营的损失算错人
+      state.casualties[army.faction] = (state.casualties[army.faction] ?? 0) + lost
       const salt = state.narrativeSalt++
       if (army.faction === 'qi' && state.tick % 3 === 0) {
         pushReport(state, 'court', state.cities[cityId ?? '']?.name ?? '前线', narrative.line('supply.empty', { army: army.name }, salt), 'high', 1, true)
@@ -78,6 +81,9 @@ export function logisticsTick(state: GameState, campaign: Campaign, narrative: {
   }
 }
 
-function armyFactionList(state: GameState): string {
-  return state.armyOrder[0] ? state.armies[state.armyOrder[0]]!.faction : 'qi'
+/** 场上全部存活部队（不分阵营）：补给、断粮、疲惫对每一支都该结算 */
+function allLivingArmies(state: GameState): import('./types.js').ArmyState[] {
+  return state.armyOrder
+    .map(id => state.armies[id])
+    .filter((a): a is import('./types.js').ArmyState => !!a && !a.removed)
 }

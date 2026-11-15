@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { store } from '../../store/game'
 
 const ui = computed(() => store.ui!)
@@ -9,6 +9,20 @@ const list = computed(() => {
   if (filter.value === 'important') return all.filter(r => r.important)
   if (filter.value === 'scout') return all.filter(r => r.source === 'scout' || r.source === 'border')
   return all
+})
+// 新战报插在顶部：若用户正在往下翻旧报，内容会被整体顶走。插入后按「旧滚动位置 + 新增高度」补偿。
+const feed = ref<HTMLElement | null>(null)
+watch(() => ui.value.reports.length, async (next, prev) => {
+  const el = feed.value
+  if (!el || next <= (prev ?? 0)) return
+  // 用户已经翻到底部时保持贴底；否则按「内容实际长高了多少」补回滚动位置，
+  // 用每条的固定估算高度会在长文本战报上漂移。
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+  const before = el.scrollTop
+  const beforeHeight = el.scrollHeight
+  await nextTick()
+  if (atBottom) el.scrollTop = el.scrollHeight
+  else el.scrollTop = before + Math.max(0, el.scrollHeight - beforeHeight)
 })
 const sourceIcon: Record<string, string> = {
   scout: '候', border: '亭', deserter: '卒', merchant: '商', envoy: '使', court: '廷', counsel: '谋', note: '报',
@@ -25,7 +39,7 @@ const sourceIcon: Record<string, string> = {
         <button :class="{ on: filter === 'scout' }" @click="filter = 'scout'">斥候</button>
       </div>
     </header>
-    <div class="feed scroll hide-scroll">
+    <div ref="feed" class="feed scroll hide-scroll" role="log" aria-live="polite" aria-relevant="additions" aria-label="前线战报流">
       <article v-for="r in list" :key="r.id" class="report" :class="{ important: r.important }">
         <div class="meta">
           <span class="source" :data-source="r.source">{{ sourceIcon[r.source] ?? '报' }} · {{ r.sourceName }}</span>

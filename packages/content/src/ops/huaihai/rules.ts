@@ -303,7 +303,9 @@ const rules: OpsRules = {
         }
         break
       case 'd8':
-        orderPlayer(state, 'xuzhou', ['pl-e2'])
+        // 原来这行在 if 之前，四个选项（含「围而不打」）都会把东线兵团调往徐州，
+        // 与选项语义无关。只有「总攻 / 围三缺一」才需要合围徐州。
+        if (optionId === 'opt2' || optionId === 'opt3') orderPlayer(state, 'xuzhou', ['pl-e2'])
         if (optionId === 'opt1') {
           state.vars.siegeNotAssault = 1
           state.vars.politicalClock = 0
@@ -555,6 +557,27 @@ const rules: OpsRules = {
       if (lg < 35) {
         for (const a of armiesOf(state, state.playerFaction)) a.morale = clamp(a.morale - 0.25, 5, 100)
         if (state.tick % 12 === 0) addReport(state, 'court', '后方', '支前运力告急，前线粮食与弹药吃紧。', 'mid', 1, true)
+      }
+    }
+    // 支前运力就是补给线：本役我军开局不占任何城邑（26 城全在对方手里），
+    // 引擎按「有己方城邑才不饿」判定会让全军从第一天起恒为断粮。
+    // 淮海的补给本来走的就不是城邑，而是民工与小推车——运力高即粮道通。
+    {
+      const lg = state.vars.logistics ?? 100
+      for (const a of armiesOf(state, state.playerFaction)) {
+        if (a.removed || a.inBattle) continue
+        a.supply = lg >= 60 ? 'ok' : lg >= 30 ? 'threatened' : 'cut'
+        const city = a.pos.kind === 'city' ? state.cities[a.pos.city] : undefined
+        const inOwnCity = !!city && city.owner === a.faction
+        // 己方城邑里按引擎规则就地补给；其余处境由运力兜底（不再让引擎判成断粮）
+        if (a.supply === 'ok' && !inOwnCity) {
+          const gain = lg >= 80 ? 1.6 : 1
+          a.foodDays = clamp(a.foodDays + gain, 0, campaign.balance.maxFoodDays)
+        } else if (a.supply === 'threatened' && !inOwnCity) {
+          a.foodDays = clamp(a.foodDays - 0.4, 0, campaign.balance.maxFoodDays)
+        } else if (a.supply === 'cut' && !inOwnCity) {
+          a.foodDays = clamp(a.foodDays - 1.6, 0, campaign.balance.maxFoodDays)
+        }
       }
     }
     // ---- 事件一：支前运力（雨雪折减、连续动员效率减半） ----

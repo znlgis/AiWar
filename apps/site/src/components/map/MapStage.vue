@@ -86,12 +86,18 @@ const labelBox = computed(() => new Map(labelPlacement.value.map(l => [l.id, l])
 
 // 同城多支部队时把标记扇形排开：否则「北府兵」与「水军」会叠在同一个点上，谁也看不清
 const armyMarkers = computed(() => {
+  // 先按位置分组一次，再按组内序号排布：原来在 map 里对每支队又 filter 全表，O(n²)
   const groups = new Map<string, number>()
+  const totals = new Map<string, number>()
+  for (const a of ui.value.armies) {
+    const key = Math.round(a.x) + ':' + Math.round(a.y)
+    totals.set(key, (totals.get(key) ?? 0) + 1)
+  }
   return ui.value.armies.map(a => {
     const key = Math.round(a.x) + ':' + Math.round(a.y)
     const index = groups.get(key) ?? 0
     groups.set(key, index + 1)
-    const total = ui.value.armies.filter(o => Math.round(o.x) === Math.round(a.x) && Math.round(o.y) === Math.round(a.y)).length
+    const total = totals.get(key) ?? 1
     if (total <= 1) return { ...a, x: a.x, y: a.y, labelY: -22 }
     // 同城多军：横向排开，标签上下交错，避免两个名字叠在一起看不清
     return {
@@ -102,6 +108,21 @@ const armyMarkers = computed(() => {
     }
   })
 })
+// 道路样式：ops 战役有 rail（津浦线）/mountain（山道）/water，全部落到默认灰会让
+// 铁路看起来和土路一样。抽成纯函数，模板里也能直接调。
+type RoadStyle = { stroke: string; width: number; dash?: string }
+const ROAD_STYLES: Record<string, RoadStyle> = {
+  river: { stroke: '#7fa3ad', width: 2.2 },
+  water: { stroke: '#7fa3ad', width: 2 },
+  pass: { stroke: '#9a7f5a', width: 1.6, dash: '6 4' },
+  mountain: { stroke: '#9a7f5a', width: 1.6 },
+  rail: { stroke: '#6f6a5f', width: 1.8, dash: '8 3' },
+  road: { stroke: '#c4c1b6', width: 1.2 },
+}
+function roadStyle(kind: string): RoadStyle {
+  return ROAD_STYLES[kind] ?? ROAD_STYLES.road!
+}
+
 const dragging = ref(false)
 const pointers = new Map<number, { x: number; y: number }>()
 let pinchStart: { dist: number; k: number; cx: number; cy: number; tx: number; ty: number } | null = null
@@ -304,9 +325,9 @@ onBeforeUnmount(() => {
             :key="r.id"
             :d="r.d"
             fill="none"
-            :stroke="r.kind === 'river' ? '#7fa3ad' : r.kind === 'pass' ? '#9a7f5a' : '#c4c1b6'"
-            :stroke-width="r.kind === 'river' ? 2.2 : r.kind === 'pass' ? 1.6 : 1.2"
-            :stroke-dasharray="r.kind === 'pass' ? '6 4' : undefined"
+            :stroke="roadStyle(r.kind).stroke"
+            :stroke-width="roadStyle(r.kind).width"
+            :stroke-dasharray="roadStyle(r.kind).dash"
             stroke-linecap="round"
           />
           <text v-for="r in roads.filter(x => x.kind === 'river' && x.name)" :key="r.id + '-label'"
@@ -350,7 +371,7 @@ onBeforeUnmount(() => {
       </g>
     </svg>
 
-    <div class="map-tools" @pointerdown.stop @wheel.stop>
+    <div class="map-tools">
       <button type="button" aria-label="放大" @click="zoomButton(1.3)">+</button>
       <button type="button" aria-label="缩小" @click="zoomButton(1 / 1.3)">−</button>
       <button type="button" class="reset" aria-label="复位" @click="resetView">复位</button>
@@ -375,7 +396,8 @@ text { font-family: var(--font); user-select: none; }
 }
 .map-tools button.reset { width: auto; padding: 0 10px; font-size: 12px; }
 .map-tools button:hover { border-color: var(--ink-3); }
-.map-hint { position: absolute; left: 12px; top: 10px; margin: 0; font-size: 11px; color: var(--ink-3); background: rgba(255, 253, 248, 0.82); border-radius: 6px; padding: 2px 7px; pointer-events: none; }
+/* 部队卡片在 left:12px/top:12px（BattleView），提示文字必须让开，否则宽屏上两段文字叠在一起 */
+.map-hint { position: absolute; left: 12px; bottom: 10px; margin: 0; font-size: 11px; color: var(--ink-3); background: rgba(255, 253, 248, 0.82); border-radius: 6px; padding: 2px 7px; pointer-events: none; }
 @media (max-width: 860px) {
   /* 小屏上字体单位被整体缩得更小，标签反而更容易糊在一起：略放大，靠上面的重叠剔除保证可读 */
   .city-label { font-size: 15px; }

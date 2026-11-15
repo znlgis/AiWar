@@ -1,11 +1,11 @@
 import type {
   Campaign as LegacyCampaign, Difficulty, DifficultyId, Narrative, OpsCampaign, OpsNarrative, OpsRules,
 } from '@aiwar/sim'
-import { TASK_LABELS } from '@aiwar/sim'
+import { registerRules, TASK_LABELS } from '@aiwar/sim'
 import { guilingCampaign, narrator } from './index.js'
 import { siduCampaign } from './ops/siduchishui/data.js'
 import siduRules from './ops/siduchishui/rules.js'
-import { makeOpsNarrator } from './ops/narrator.js'
+import { makeOpsNarrator, MODERN_CORPUS } from './ops/narrator.js'
 import { SIDU_CORPUS } from './ops/siduchishui/corpus.js'
 import { HUAIHAI_CORPUS } from './ops/huaihai/corpus.js'
 import { FEISHUI_CORPUS } from './ops/feishui/corpus.js'
@@ -135,7 +135,8 @@ export const huaihaiPack: OpsPack = {
     { id: 'hold', label: '驻守' }, { id: 'strike', label: '突击' },
   ],
   unitsLabel: '解放军', enemyLabel: '国民党军',
-  campaign: huaihaiCampaign, narrative: makeOpsNarrator(HUAIHAI_CORPUS), rules: huaihaiRules,
+  // 淮海是近代战役：通用语料里的「斥候 / 边亭 / 朝议」会出戏，这里叠加现代写法
+  campaign: huaihaiCampaign, narrative: makeOpsNarrator({ ...MODERN_CORPUS, ...HUAIHAI_CORPUS }), rules: huaihaiRules,
 }
 
 export const feishuiPack: OpsPack = {
@@ -179,6 +180,10 @@ export const chibiPack: OpsPack = {
 }
 
 export const PACKS: Pack[] = [guilingPack, siduchishuiPack, huaihaiPack, feishuiPack, chibiPack]
+
+// 规则注册表此前只有测试在用：生产路径上 getRules() 必抛「未注册的战役规则」。
+// 这里按 pack 注册一遍（Map.set 幂等），让 rulesId → 规则 的契约真正可用。
+for (const pack of PACKS) if (pack.engine === 'ops') registerRules(pack.rules)
 
 export function getPack(id: string): Pack {
   return PACKS.find(p => p.id === id) ?? guilingPack

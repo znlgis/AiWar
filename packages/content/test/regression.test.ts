@@ -1,5 +1,6 @@
 import { describe, it } from 'vitest'
-import { advanceOpsDay, createOpsState, registerRules, resolveOpsNode } from '@aiwar/sim'
+import { advanceDay, advanceOpsDay, createGame, createOpsState, finalize, registerRules, resolveDecision, resolveOpsNode } from '@aiwar/sim'
+import { guilingCampaign, narrator as guilingNarrator } from '../src/index.js'
 import { siduCampaign } from '../src/ops/siduchishui/data.js'
 import siduRules from '../src/ops/siduchishui/rules.js'
 import { chibiCampaign } from '../src/ops/chibi/data.js'
@@ -35,6 +36,21 @@ function run(campaign: any, rules: any, seed: number, difficulty: 'hist' | 'norm
   return rules.score(st, campaign)
 }
 
+// 围魏救赵（旧引擎）跑同一套史实决策串，取 5 个种子的平均分
+const GUILING_PICKS: Record<string, string> = { n1: 'opt1', n2: 'opt3', n3: 'opt2', n4: 'opt1', n5: 'opt2', n6: 'opt1', n7: 'opt2' }
+function runLegacy(difficulty: 'hist' | 'hell'): number {
+  const rows = [11, 12, 13, 14, 15].map(seed => {
+    const state = createGame({ campaign: guilingCampaign, difficulty, seed })
+    for (let i = 0; i < 120; i++) {
+      if (state.over) break
+      const r = advanceDay(state, guilingCampaign, guilingNarrator)
+      if (r.pendingNode) resolveDecision(state, guilingCampaign, guilingNarrator, r.pendingNode, GUILING_PICKS[r.pendingNode] ?? 'opt1')
+    }
+    return finalize(state, guilingCampaign).total
+  })
+  return rows.reduce((s, v) => s + v, 0) / rows.length
+}
+
 function assertProgress(name: string, campaign: any, rules: any, minGrade: string) {
   const order = 'SABCD'
   const rows = [1, 2, 3].map(seed => run(campaign, rules, seed))
@@ -66,6 +82,16 @@ describe('campaign regression (historical routes)', () => {
     const best = assertProgress('huaihai', huaihaiCampaign, huaihaiRules, 'B')
     if (!['full', 'partial', 'south'].includes(best.endingId)) throw new Error('淮海应能围歼敌军，实际 ' + best.endingId)
     if ((best.parts.find((p: { key: string; value: number }) => p.key === 'jiawang')?.value ?? 0) <= 0) throw new Error('淮海应能触发贾汪战场转向')
+  })
+
+  // 围魏救赵走的是旧引擎，此前没有难度梯度守卫：修好「敌方永不断粮」之后，
+  // 它的地主难度也不该靠 scoreFactor 把分数抬过史实难度。
+  it('围魏救赵历史路线难度梯度单调（史实 > 地狱）', () => {
+    const hist = runLegacy('hist')
+    const hell = runLegacy('hell')
+    console.log('difficulty guiling hist', Math.round(hist), 'hell', Math.round(hell), 'gap', Math.round(hist - hell))
+    if (hist < hell - 3) throw new Error('guiling 难度倒挂：史实 ' + Math.round(hist) + ' 明显低于地狱 ' + Math.round(hell))
+    if (hist < 60) throw new Error('guiling 史实路线分数过低：' + Math.round(hist))
   })
 
   // 难度梯度回归：历史难度平均分必须高于地狱难度，防止分数倒挂

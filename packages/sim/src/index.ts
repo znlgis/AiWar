@@ -18,7 +18,7 @@ export * from './nodes.js'
 export * from './opsTypes.js'
 export { registerRules, getRules, listRuleIds } from './gameRules.js'
 export {
-  createOpsState, totalTroops, armiesAt, armiesOf, playerArmies, addReport, say, fallbackText,
+  createOpsState, totalTroops, armiesAt, armiesOf, playerArmies, addReport, say, fallbackText, isHostile,
   damageArmy, armyPower, OPS_TASK_LABELS, canIssueOpsOrder, issueOpsOrder, applyOpsOrders,
   shortestRoute, moveArmies, intelTick, detectBattles, siegeTick as siegeTickOps,
   logisticsTick as logisticsTickOps, advanceOpsDay, resolveOpsNode, timeoutOpsNode,

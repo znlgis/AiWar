@@ -84,6 +84,20 @@ export function totalTroops(state: OpsState, ids: string[]): number {
   return ids.reduce((sum, id) => sum + (state.armies[id]?.removed ? 0 : state.armies[id]?.troops ?? 0), 0)
 }
 
+/**
+ * 敌我判定：只有「一方是玩家、另一方是战役声明的敌对阵营」才算交战。
+ * 原来的实现是「不是我方即敌方」，于是战役的盟友（如赤壁的刘备军）会和玩家
+ * 在同一个城里打起来，campaign.enemyFactions 这份契约等于没接线。
+ */
+export function isHostile(campaign: OpsCampaign, a: string, b: string): boolean {
+  if (a === b) return false
+  const enemies = campaign.enemyFactions ?? []
+  if (a === campaign.playerFaction) return enemies.includes(b)
+  if (b === campaign.playerFaction) return enemies.includes(a)
+  // 非玩家阵营之间：只有一方属于敌对阵营、另一方是玩家盟友时才算敌对
+  return enemies.includes(a) !== enemies.includes(b)
+}
+
 export function armiesAt(state: OpsState, cityId: string, faction?: string): OpsArmyState[] {
   return state.armyOrder
     .map(id => state.armies[id])
@@ -271,6 +285,10 @@ export function moveArmies(state: OpsState, campaign: OpsCampaign): void {
   for (const id of state.armyOrder) {
     const army = state.armies[id]
     if (!army || army.removed || army.inBattle || !army.order) continue
+    // 一天只推进一次。主循环在 aiTick 前后各调一次 moveArmies（第二次是为让 AI
+    // 当日新下的军令当天生效）；若不设闸，先动过的部队当天会走两段路，实际速度翻倍。
+    if (army.lastMoveTick === state.tick) continue
+    army.lastMoveTick = state.tick
     const pos = army.pos
     if (pos.kind === 'road') {
       const road = state.roads.find(r => r.id === pos.road)
@@ -377,7 +395,8 @@ export function detectBattles(state: OpsState, campaign: OpsCampaign, narrative:
     const present = armiesAt(state, city.id)
     if (present.length === 0) continue
     const playerSide = present.filter(a => a.faction === state.playerFaction)
-    const enemySide = present.filter(a => a.faction !== state.playerFaction)
+    // 敌军只认战役声明的敌对阵营：盟友驻在同一城里不该开战
+    const enemySide = present.filter(a => isHostile(campaign, state.playerFaction, a.faction))
     if (playerSide.length === 0 || enemySide.length === 0) continue
     if (state.battles.some(b => b.city === city.id)) continue
     const playerDefends = city.owner === state.playerFaction
@@ -604,7 +623,10 @@ function nearestFriendlyCity(state: OpsState, faction: string, from: string): st
 export function siegeTick(state: OpsState, campaign: OpsCampaign, narrative: OpsNarrative, rules: OpsRules): void {
   for (const city of Object.values(state.cities)) {
     const present = armiesAt(state, city.id)
-    const hostile = present.filter(a => a.faction !== city.owner)
+    // 围城只算真正敌对的一方：盟友过境不会攻盟友的城。
+    // 中立（无主）城邑例外：谁都能取，保留原来「非守方即可攻城」的语义。
+    const hostile = present.filter(a =>
+      isHostile(campaign, city.owner, a.faction) || (city.owner === 'neutral' && a.faction !== city.owner))
     if (hostile.length === 0) {
       if (city.besieged) city.besieged = false
       continue

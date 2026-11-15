@@ -4,3 +4,11 @@ release/
 .shots/
 *.local
 .DS_Store
+__pycache__/
+*.pyc
+*.tsbuildinfo
+coverage/
+.env
+.env.*
+pnpm-debug.log
+/*.zip

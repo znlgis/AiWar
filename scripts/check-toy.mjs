@@ -59,6 +59,22 @@ function walk(dir, out = []) {
   return out;
 }
 
+/** CRC32（IEEE 802.3）：与 zip 中央目录里的校验值直接比对，无需解压 */
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+function crc32(buf) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) crc = CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
 const kb = (n) => (n / 1024).toFixed(1);
 const mb = (n) => (n / 1024 / 1024).toFixed(2);
 
@@ -80,14 +96,15 @@ else {
   if (bytes <= LIMITS.entryBytes) ok('入口 index.html ' + kb(bytes) + ' KB / 上限 1024 KB');
   else fail('入口 index.html ' + kb(bytes) + ' KB 超过平台 1024 KB 硬上限');
 }
-const totalBytes = files.reduce((sum, p) => sum + statSync(p).size, 0);
-if (totalBytes <= LIMITS.packageBytes) ok('整包 ' + mb(totalBytes) + ' MB（' + files.length + ' 个文件）/ 上限 50 MB');
-else fail('整包 ' + mb(totalBytes) + ' MB 超过 50 MB（更大包体要单独申请）');
-
-/** ---------- 2. 后缀白名单 / 多余文件 ---------- */
 /** 打包产物本身（dist 里顺手放的分发 zip）不参与「要发布哪些文件」的判定 */
 const ARTIFACT_SKIP = /\.zip$/i;
 const shipped = files.filter((p) => !ARTIFACT_SKIP.test(relOf(p)));
+// 体积也只按「真正会上传的文件」算：否则 dist 里放一个备份 zip 会虚增包体预算
+const totalBytes = shipped.reduce((sum, p) => sum + statSync(p).size, 0);
+if (totalBytes <= LIMITS.packageBytes) ok('整包 ' + mb(totalBytes) + ' MB（' + shipped.length + ' 个文件）/ 上限 50 MB');
+else fail('整包 ' + mb(totalBytes) + ' MB 超过 50 MB（更大包体要单独申请）');
+
+/** ---------- 2. 后缀白名单 / 多余文件 ---------- */
 const badExt = shipped.map((p) => ({ p: relOf(p), ext: extname(p).toLowerCase() })).filter((x) => !ALLOWED_EXT.has(x.ext));
 if (badExt.length === 0) ok('所有文件后缀都在平台白名单内');
 else for (const x of badExt.slice(0, 8)) fail('白名单外的后缀：' + x.p);
@@ -100,15 +117,26 @@ const textFiles = files.filter((p) => CODE_EXT.has(extname(p).toLowerCase()));
 const texts = new Map(textFiles.map((p) => [relOf(p), readFileSync(p, 'utf8')]));
 const absHits = [];
 for (const [name, text] of texts) {
-  if (!/\.(?:html|htm|css)$/.test(name)) continue;
-  for (const m of text.matchAll(/(?:src|href)\s*=\s*["']\/(?!\/)[^"']*/g)) absHits.push(name + ' -> ' + m[0]);
-  for (const m of text.matchAll(/url\(\s*["']?\/(?!\/)[^"')]+/g)) absHits.push(name + ' -> ' + m[0]);
+  if (!/\.(?:html|htm|css|js|mjs)$/.test(name)) continue;
+  // html/css 里的站根绝对引用
+  if (/\.(?:html|htm|css)$/.test(name)) {
+    for (const m of text.matchAll(/(?:src|href)\s*=\s*["']\/(?!\/)[^"']*/g)) absHits.push(name + ' -> ' + m[0]);
+    for (const m of text.matchAll(/url\(\s*["']?\/(?!\/)[^"')]+/g)) absHits.push(name + ' -> ' + m[0]);
+  }
+  // JS 分块里的站根绝对路径同样会白屏：只扫 html/css 会漏掉 base 回归与手动 import
+  for (const m of text.matchAll(/(?:^|[^\w$.])(?:from\s*|import\s*\(|import\s*)["']\/(?!\/)[^"']+/g)) absHits.push(name + ' -> ' + m[0].trim());
+  for (const m of text.matchAll(/new URL\(\s*["']\/(?!\/)[^"']+/g)) absHits.push(name + ' -> ' + m[0]);
 }
 if (absHits.length === 0) ok('资源引用全是相对路径');
 else for (const hit of absHits.slice(0, 6)) fail('站根绝对路径会白屏：' + hit);
 
 /** ---------- 4. 站外链接 ---------- */
-const hostAllowed = (url) => CONFIG.allowHosts.some((host) => url.includes(host));
+// 子串匹配会被 https://evil.example/?www.w3.org 绕过，按 URL 解析出的 host 比对
+const hostAllowed = (url) => {
+  let host;
+  try { host = new URL(url).host; } catch { return false; }
+  return CONFIG.allowHosts.some((allowed) => host === allowed || host.endsWith('.' + allowed));
+};
 const externalLoads = [];
 for (const [name, text] of texts) {
   if (!/\.(?:html|htm|css)$/.test(name)) continue;
@@ -185,13 +213,15 @@ const SOURCE_EXT = /\.(?:vue|ts|tsx|js|jsx|html)$/;
 const sourceFiles = [];
 for (const root of CONFIG.sourceRoots) {
   const abs = join(ROOT, root);
-  if (!existsSync(abs)) continue;
+  // 目录改名后静默 continue 会让这几条红线扫描 0 个文件却照样绿 —— 必须报错
+  if (!existsSync(abs)) { fail('源码根不存在，UGC / 站外链接检查形同虚设：' + root); continue; }
   for (const path of walk(abs)) {
     if (!SOURCE_EXT.test(path)) continue;
     if (/\.(?:test|spec)\./.test(path)) continue;
     sourceFiles.push(path);
   }
 }
+if (sourceFiles.length === 0) fail('没有扫到任何源码文件（sourceRoots 配置或目录结构有误）');
 const ugcHits = [];
 for (const path of sourceFiles) {
   const text = readFileSync(path, 'utf8');
@@ -218,10 +248,13 @@ else for (const hit of srcExternal.slice(0, 6)) warn('源码里的站外 URL（�
 if (CONFIG.zip === null) ok('本项目不产出 zip，跳过包根检查');
 else {
   const zipPath = join(ROOT, CONFIG.zip);
-  if (!existsSync(zipPath)) warn('没找到 ' + CONFIG.zip + '（先打包）');
+  // 缺包必须是错误：只告警的话，干净检出上单跑 toy:check 会「通过」，
+  // 而实际上根本没有可上传的产物 —— 这正是最容易被误判为可发布的状态。
+  if (!existsSync(zipPath)) fail('没找到 ' + CONFIG.zip + '（先 pnpm toy:zip）');
   else {
     const buf = readFileSync(zipPath);
-    const names = readZipNames(buf);
+    const entries = readZipEntries(buf);
+    const names = entries.map((e) => e.name);
     if (buf.length > LIMITS.packageBytes) fail('zip ' + mb(buf.length) + ' MB 超过 50 MB');
     else ok('zip ' + mb(buf.length) + ' MB / 上限 50 MB');
     if (names.includes('index.html')) ok('zip 包根就是 index.html');
@@ -232,10 +265,32 @@ else {
     const badZipExt = names.filter((n) => !n.endsWith('/') && !ALLOWED_EXT.has(extname(n).toLowerCase()));
     if (badZipExt.length === 0) ok('zip 内后缀都在白名单内');
     else for (const n of badZipExt.slice(0, 6)) fail('zip 里有白名单外的文件：' + n);
+
+    /** ---------- 11b. zip 必须与当前 dist 逐字节一致 ---------- */
+    // 只比文件名的话，上一次构建留下的旧 zip 会和刚构建的 dist 一样通过自检，
+    // 于是上传的是旧版本而「自检通过」。用中央目录里的 CRC32 与当前产物比对。
+    const stale = [];
+    for (const entry of entries) {
+      if (entry.name.endsWith('/')) continue;
+      const local = join(DIST, entry.name);
+      if (!existsSync(local)) { stale.push(entry.name + '（dist 里已没有）'); continue; }
+      const actual = crc32(readFileSync(local));
+      if (actual !== entry.crc || statSync(local).size !== entry.size) stale.push(entry.name + '（内容已变）');
+    }
+    if (stale.length === 0) ok('zip 与当前 dist 内容一致（' + entries.length + ' 项 CRC 校验）');
+    else {
+      for (const s of stale.slice(0, 6)) fail('zip 是旧的，请重新 pnpm toy:zip：' + s);
+      if (stale.length > 6) fail('……另有 ' + (stale.length - 6) + ' 项与 dist 不一致');
+    }
+    const inZip = new Set(entries.filter((e) => !e.name.endsWith('/')).map((e) => e.name));
+    const missingInZip = shipped.map(relOf).filter((n) => !inZip.has(n));
+    if (missingInZip.length === 0) ok('dist 里要发布的文件都进了 zip');
+    else for (const n of missingInZip.slice(0, 6)) fail('zip 漏掉了产物文件：' + n);
   }
 }
 
-function readZipNames(buf) {
+
+function readZipEntries(buf) {
   let eocd = -1;
   for (let i = buf.length - 22; i >= 0 && i > buf.length - 22 - 65536; i--) {
     if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
@@ -243,16 +298,19 @@ function readZipNames(buf) {
   if (eocd < 0) return [];
   const count = buf.readUInt16LE(eocd + 10);
   let p = buf.readUInt32LE(eocd + 16);
-  const names = [];
+  const entries = [];
   for (let i = 0; i < count; i++) {
     if (buf.readUInt32LE(p) !== 0x02014b50) break;
+    const crc = buf.readUInt32LE(p + 16);
+    const compSize = buf.readUInt32LE(p + 20);
+    const size = buf.readUInt32LE(p + 24);
     const nameLen = buf.readUInt16LE(p + 28);
     const extraLen = buf.readUInt16LE(p + 30);
     const commentLen = buf.readUInt16LE(p + 32);
-    names.push(buf.toString('utf8', p + 46, p + 46 + nameLen));
+    entries.push({ name: buf.toString('utf8', p + 46, p + 46 + nameLen), crc, compSize, size });
     p += 46 + nameLen + extraLen + commentLen;
   }
-  return names;
+  return entries;
 }
 
 if (errors > 0) {

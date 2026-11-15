@@ -52,7 +52,7 @@ export function createInitialState(campaign: Campaign, difficulty: GameState['di
     tick: 0,
     seed,
     difficulty,
-    playerFaction: 'qi',
+    playerFaction: campaign.playerFaction,
     cities,
     roads: campaign.roads,
     armies,

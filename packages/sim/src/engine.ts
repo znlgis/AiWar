@@ -54,22 +54,6 @@ export function advanceDay(state: GameState, campaign: Campaign, narrative: Narr
   return { reports: state.reports.filter(r => r.arriveTick === state.tick), pendingNode: state.pendingNode, over: state.over, events }
 }
 
-/**
- * 魏军进入齐军设伏城池时的拦截判定：坐镇桂陵/濮阳的伏兵，遇到回师魏军即触发伏击。
- */
-export function checkAmbushIntercept(state: GameState, campaign: Campaign): void {
-  const wei = state.armies[campaign.roles.weiFieldArmy]
-  if (!wei || wei.removed || wei.inBattle || wei.pos.kind !== 'city') return
-  const cityId = wei.pos.city
-  if (!cityId) return
-  const qi = state.armyOrder.map(id => state.armies[id]).filter(a => !!a && !a.removed && a.faction === 'qi' && a.pos.city === cityId && !a.inBattle)
-  if (qi.length === 0) return
-  if (state.battles.some(b => b.city === cityId)) return
-  const ambushers = qi.filter(a => a.order?.task === 'ambush' && a.order.arrived)
-  if (ambushers.length === 0) return
-  // 触发即由 detectBattle 建立战斗（伏击标记来自 ambush 部队）
-}
-
 export function resolveDecision(state: GameState, campaign: Campaign, narrative: Narrative, nodeId: string, optionId: string) {
   return resolveNode(state, campaign, narrative, nodeId, optionId)
 }

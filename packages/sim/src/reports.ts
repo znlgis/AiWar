@@ -52,13 +52,4 @@ export function fallback(kind: string, params: Record<string, string>): string {
   return place + '方面有新的军情。'
 }
 
-export function visibleReports(state: GameState): Report[] {
-  return state.reports.filter(r => r.arriveTick <= state.tick)
-}
 
-export function confidenceFor(state: GameState, base: Confidence): Confidence {
-  const d = state.difficulty
-  if (d === 'hist' || d === 'normal') return base
-  if (base === 'high') return 'mid'
-  return 'low'
-}

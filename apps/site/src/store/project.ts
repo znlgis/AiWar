@@ -32,8 +32,6 @@ export interface UiTerrain {
 export interface UiControlArea {
   faction: FactionId
   color: string
-  /** 兼容旧渲染：凸包点位（保留给回退路径） */
-  points: [number, number][]
   /** Voronoi 辖域：每块一个近似矩形的凸多边形，同势力多块 */
   cells: { path: string; key: string }[]
 }
@@ -116,42 +114,6 @@ function moraleBand(v: number): string {
 function supplyText(s: string): string {
   return s === 'ok' ? '通' : s === 'threatened' ? '受威胁' : '已断'
 }
-function hull(points: [number, number][]): [number, number][] {
-  if (points.length === 1) {
-    const [x, y] = points[0]!
-    const r = 30
-    return [[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]]
-  }
-  if (points.length < 3) return points
-  const sorted = [...points].sort((p, q) => p[0] - q[0] || p[1] - q[1])
-  const cross = (o: [number, number], a: [number, number], b: [number, number]) =>
-    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
-  const lower: [number, number][] = []
-  for (const p of sorted) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0) lower.pop()
-    lower.push(p)
-  }
-  const upper: [number, number][] = []
-  for (let i = sorted.length - 1; i >= 0; i--) {
-    const p = sorted[i]!
-    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0) upper.pop()
-    upper.push(p)
-  }
-  lower.pop()
-  upper.pop()
-  const result = lower.concat(upper)
-  return result.length >= 3 ? result : points
-}
-function expand(pts: [number, number][]): [number, number][] {
-  if (pts.length < 3) return pts
-  let cx = 0
-  let cy = 0
-  for (const p of pts) { cx += p[0]; cy += p[1] }
-  cx /= pts.length
-  cy /= pts.length
-  return pts.map(([x, y]) => [cx + (x - cx) * 1.16, cy + (y - cy) * 1.16] as [number, number])
-}
-
 /**
  * 势力范围：按「最近城邑」做加权 Voronoi 划分，而不是把占领城市的点连成凸包。
  * 凸包会把凹进去的敌占区吞进己方，五个势力叠成几块大三角——这是地图观感
@@ -179,28 +141,11 @@ function makeAreas(cities: UiCity[], colorOf: (f: FactionId) => string, mapW = 1
     list.push({ key: cell.site.id, path: roundedPolygonPath(cell.polygon) })
     byFaction.set(cell.site.faction, list)
   }
-  // 旧渲染兜底：同势力城邑的凸包（仅在 Voronoi 没有产出时使用）
-  const legacy = makeLegacyAreas(visible, colorOf)
-  return legacy.map(area => ({
-    ...area,
-    cells: byFaction.get(area.faction as string) ?? [],
-  }))
-}
-
-function makeLegacyAreas(cities: UiCity[], colorOf: (f: FactionId) => string): UiControlArea[] {
-  const owned: Record<string, [number, number][]> = {}
-  for (const city of cities) {
-    owned[city.owner] = owned[city.owner] ?? []
-    owned[city.owner]!.push([city.x, city.y])
+  const out: UiControlArea[] = []
+  for (const [faction, cells] of byFaction) {
+    out.push({ faction: faction as FactionId, color: colorOf(faction as FactionId), cells })
   }
-  return Object.entries(owned)
-    .filter(([, pts]) => pts.length >= 1)
-    .map(([faction, pts]) => ({
-      faction: faction as FactionId,
-      color: colorOf(faction as FactionId),
-      points: expand(hull(pts)),
-      cells: [],
-    }))
+  return out
 }
 
 /** 地形要素 → 可直接渲染的 path（山系额外生成笔触） */
@@ -241,6 +186,10 @@ export function projectLegacy(
   score: Score | null = null, debrief: Debrief | null = null,
 ): UiState {
   const colorOf = (f: FactionId) => campaign.factions[f]?.color ?? '#666'
+  // 敌方势力取「势力表里第一个不是玩家的」：不再把 'wei' 写死，
+  // 否则任一改过阵营 id 的 legacy 战役都会取不到敌方的颜色与称呼。
+  const legacyEnemy: FactionId =
+    Object.keys(campaign.factions).find(id => id !== campaign.playerFaction) ?? campaign.playerFaction
   const cityPos = (id?: string) => {
     const city = campaign.cities.find(c => c.id === id)
     return city ? { x: city.x, y: city.y } : { x: 500, y: 350 }
@@ -317,11 +266,12 @@ export function projectLegacy(
     pressureText: state.politics.weiPressure >= 85 ? '魏廷震动' : state.politics.weiPressure >= 55 ? '大梁告急' : state.politics.weiPressure >= 25 ? '魏廷戒严' : '魏廷未动',
     objectiveText: state.politics.pangjuanReturning ? '魏军回师' : state.cities[campaign.roles.zhaoCapital]?.owner === 'wei' ? '邯郸已陷' : '邯郸被围',
     playerFaction: campaign.playerFaction,
-    playerColor: colorOf('qi'),
-    enemyColor: colorOf('wei'),
-    playerLabel: campaign.factions.qi?.name ?? '齐军',
-    enemyLabel: campaign.factions.wei?.name ?? '魏军',
-    traceColor: colorOf('wei'),
+    playerColor: colorOf(campaign.playerFaction),
+    // 敌方 = 势力表里第一个非玩家势力：legacy 只有齐/魏两种，但换战役就不该再写死 'wei'
+    playerLabel: campaign.factions[campaign.playerFaction]?.name ?? '我军',
+    enemyLabel: campaign.factions[legacyEnemy]?.name ?? '敌军',
+    enemyColor: colorOf(legacyEnemy),
+    traceColor: colorOf(legacyEnemy),
     pressureHigh,
     mapWidth: 1000,
     mapHeight: 700,
