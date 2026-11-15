@@ -1,5 +1,12 @@
 import type { OpsCampaign, OpsCityDef, OpsRoadDef, OpsArmyDef, DecisionNodeDef, Difficulty, DifficultyId } from '@aiwar/sim'
 
+// 淮海战役的地图与编制。
+//
+// 节点表按档案第 3 节与附录 A 落表，坐标在 600×650 画布内并保证彼此不重叠；
+// 新增节点都挂在既有走廊的侧翼（萧县—砀山、青龙集、夹沟、蒙城—涡阳、睢宁、灵璧、沛县），
+// 目的是给「合围 / 阻援 / 撤退」三条线各自留出可争夺的支点，而不去改写既有干线。
+// 道路 days 与距离成比例（约 60—80 像素折合一日行程），铁路另注；
+// 新增道路的天数一律取得比既有绕行路线更差或持平，避免悄悄改写既有最短路径。
 const cities: OpsCityDef[] = [
   { id: 'xuzhou', name: '徐州', x: 300, y: 300, owner: 'kmt', kind: 'capital', terrain: 'city', garrison: 15000, wall: 2.4, grain: 60 },
   { id: 'jiawang', name: '贾汪', x: 360, y: 250, owner: 'kmt', kind: 'city', terrain: 'mountain', garrison: 22000, wall: 1.4, grain: 20 },
@@ -18,6 +25,16 @@ const cities: OpsCityDef[] = [
   { id: 'yongcheng', name: '永城', x: 180, y: 400, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 5000, wall: 1.2, grain: 14 },
   { id: 'chenguanzhuang', name: '陈官庄', x: 160, y: 350, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.0, grain: 20 },
   { id: 'lincheng', name: '临城', x: 250, y: 210, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.2, grain: 16 },
+  // ---- 新增 9 个节点：徐州西侧退路、津浦线北段、涡河与浍河之间、徐州以东侧翼 ----
+  { id: 'xiaoxian', name: '萧县', x: 240, y: 285, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 4500, wall: 1.2, grain: 14 },
+  { id: 'dangshan', name: '砀山', x: 120, y: 250, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 3800, wall: 1.1, grain: 12 },
+  { id: 'qinglongji', name: '青龙集', x: 95, y: 320, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 3000, wall: 1.0, grain: 10 },
+  { id: 'jiagou', name: '夹沟', x: 255, y: 375, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 3500, wall: 1.2, grain: 12 },
+  { id: 'mengcheng', name: '蒙城', x: 200, y: 520, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 5000, wall: 1.3, grain: 16 },
+  { id: 'guoyang', name: '涡阳', x: 130, y: 470, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 3200, wall: 1.1, grain: 12 },
+  { id: 'suining', name: '睢宁', x: 480, y: 400, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 4000, wall: 1.2, grain: 13 },
+  { id: 'lingbi', name: '灵璧', x: 370, y: 450, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 4200, wall: 1.2, grain: 13 },
+  { id: 'peixian', name: '沛县', x: 330, y: 200, owner: 'kmt', kind: 'city', terrain: 'plain', garrison: 3000, wall: 1.1, grain: 11 },
 ]
 
 const roads: OpsRoadDef[] = [
@@ -42,13 +59,47 @@ const roads: OpsRoadDef[] = [
   { id: 'h19', from: 'xuzhou', to: 'bengbu', days: 5, kind: 'rail' },
   { id: 'h20', from: 'xuzhou', to: 'lincheng', days: 2, kind: 'rail' },
   { id: 'h21', from: 'lincheng', to: 'jiawang', days: 1, kind: 'road' },
+  // ---- 新增 29 条：徐州西侧退路、津浦北段、涡河走廊、徐州以东侧翼 ----
+  { id: 'h22', from: 'xuzhou', to: 'xiaoxian', days: 1, kind: 'road' },
+  { id: 'h23', from: 'xiaoxian', to: 'dangshan', days: 2, kind: 'road' },
+  { id: 'h24', from: 'dangshan', to: 'lincheng', days: 2, kind: 'road' },
+  { id: 'h25', from: 'chenguanzhuang', to: 'qinglongji', days: 1, kind: 'road' },
+  { id: 'h26', from: 'qinglongji', to: 'yongcheng', days: 2, kind: 'road' },
+  { id: 'h27', from: 'qinglongji', to: 'dangshan', days: 1, kind: 'road' },
+  { id: 'h28', from: 'suxian', to: 'jiagou', days: 1, kind: 'rail', name: '津浦线' },
+  { id: 'h29', from: 'jiagou', to: 'daxujia', days: 1, kind: 'road' },
+  { id: 'h30', from: 'jiagou', to: 'xiaoxian', days: 1, kind: 'road' },
+  { id: 'h31', from: 'suining', to: 'xinan', days: 2, kind: 'road' },
+  { id: 'h32', from: 'suining', to: 'nianzhuang', days: 2, kind: 'road' },
+  { id: 'h33', from: 'suining', to: 'guzhen', days: 4, kind: 'road' },
+  { id: 'h34', from: 'lingbi', to: 'shuangduiji', days: 1, kind: 'road' },
+  { id: 'h35', from: 'lingbi', to: 'guzhen', days: 2, kind: 'road' },
+  { id: 'h36', from: 'lingbi', to: 'suxian', days: 2, kind: 'road' },
+  { id: 'h37', from: 'mengcheng', to: 'nanpingji', days: 2, kind: 'river', name: '涡河' },
+  { id: 'h38', from: 'mengcheng', to: 'guoyang', days: 2, kind: 'road' },
+  { id: 'h39', from: 'guoyang', to: 'yongcheng', days: 2, kind: 'road' },
+  { id: 'h40', from: 'mengcheng', to: 'shuangduiji', days: 3, kind: 'road' },
+  { id: 'h41', from: 'peixian', to: 'jiawang', days: 1, kind: 'road' },
+  { id: 'h42', from: 'peixian', to: 'lincheng', days: 2, kind: 'road' },
+  { id: 'h43', from: 'peixian', to: 'taierzhuang', days: 2, kind: 'road' },
+  { id: 'h44', from: 'pizhou', to: 'suining', days: 3, kind: 'road' },
+  { id: 'h45', from: 'yaowan', to: 'suining', days: 4, kind: 'road' },
+  { id: 'h46', from: 'bengbu', to: 'mengcheng', days: 5, kind: 'road' },
+  { id: 'h47', from: 'nanpingji', to: 'guoyang', days: 2, kind: 'road' },
+  { id: 'h48', from: 'yongcheng', to: 'mengcheng', days: 3, kind: 'road' },
+  { id: 'h49', from: 'daxujia', to: 'suining', days: 4, kind: 'road' },
+  { id: 'h50', from: 'jiawang', to: 'pizhou', days: 3, kind: 'road' },
 ]
 
+// 部队：华野 4 支（主力、东线、苏北、特纵）、中野 1 支、地方武装 1 支；对方按兵团编制。
+// 新增的 4 支部队都放在既有部队的同一城邑或侧翼，避免开局就凭空多出一场接战。
 const armies: OpsArmyDef[] = [
   { id: 'pl-e', name: '华野主力', faction: 'pla', commander: '华野指挥部', troops: 220000, type: 'mixed', morale: 82, fatigue: 8, training: 1.15, foodDays: 26, city: 'pizhou', stealth: 0.3 },
   { id: 'pl-e2', name: '华野东线兵团', faction: 'pla', commander: '东线兵团', troops: 80000, type: 'infantry', morale: 80, fatigue: 8, training: 1.1, foodDays: 20, city: 'xinan', stealth: 0.35 },
   { id: 'pl-c', name: '中野主力', faction: 'pla', commander: '中野指挥部', troops: 120000, type: 'mixed', morale: 80, fatigue: 12, training: 1.1, foodDays: 18, city: 'suxian', stealth: 0.3 },
   { id: 'pl-l', name: '地方武装', faction: 'pla', commander: '军区部队', troops: 60000, type: 'infantry', morale: 74, fatigue: 6, training: 0.95, foodDays: 16, city: 'yongcheng', stealth: 0.4 },
+  { id: 'pl-e3', name: '华野苏北兵团', faction: 'pla', commander: '苏北兵团部', troops: 45000, type: 'infantry', morale: 78, fatigue: 10, training: 1.05, foodDays: 18, city: 'pizhou', stealth: 0.3 },
+  { id: 'pl-gun', name: '华野特纵（炮兵）', faction: 'pla', commander: '特纵指挥部', troops: 22000, type: 'mixed', morale: 80, fatigue: 8, training: 1.1, foodDays: 18, city: 'pizhou', stealth: 0.2 },
   { id: 'kmt-7', name: '第7兵团', faction: 'kmt', commander: '第7兵团部', troops: 120000, type: 'mixed', morale: 66, fatigue: 14, training: 1.0, foodDays: 16, city: 'xinan' },
   { id: 'kmt-13', name: '第13兵团', faction: 'kmt', commander: '第13兵团部', troops: 60000, type: 'mixed', morale: 58, fatigue: 14, training: 0.95, foodDays: 18, city: 'xuzhou' },
   { id: 'kmt-2', name: '第2兵团', faction: 'kmt', commander: '第2兵团部', troops: 90000, type: 'mixed', morale: 60, fatigue: 12, training: 1.0, foodDays: 18, city: 'xuzhou' },
@@ -57,6 +108,8 @@ const armies: OpsArmyDef[] = [
   { id: 'kmt-6', name: '第6兵团', faction: 'kmt', commander: '第6兵团部', troops: 50000, type: 'infantry', morale: 60, fatigue: 8, training: 0.95, foodDays: 16, city: 'bengbu' },
   { id: 'kmt-8', name: '第8兵团', faction: 'kmt', commander: '第8兵团部', troops: 50000, type: 'infantry', morale: 58, fatigue: 8, training: 0.95, foodDays: 16, city: 'bengbu' },
   { id: 'kmt-3', name: '第3绥靖区', faction: 'kmt', commander: '第3绥靖区部', troops: 23000, type: 'infantry', morale: 50, fatigue: 6, training: 0.85, foodDays: 12, city: 'jiawang' },
+  { id: 'kmt-44', name: '第44军', faction: 'kmt', commander: '第44军部', troops: 15000, type: 'infantry', morale: 56, fatigue: 10, training: 0.9, foodDays: 10, city: 'taierzhuang' },
+  { id: 'kmt-110', name: '第110师', faction: 'kmt', commander: '第110师部', troops: 5600, type: 'infantry', morale: 52, fatigue: 12, training: 0.9, foodDays: 10, city: 'mengcheng' },
 ]
 
 const decisions: DecisionNodeDef[] = [
@@ -140,6 +193,47 @@ const decisions: DecisionNodeDef[] = [
     ],
     defaultOption: 'opt1',
   },
+  // ---- 新增 4 个节点：三线配平、支前运力、策反点数、政治时钟 ----
+  {
+    id: 'd9', title: '三线配平：吃一个、挟一个、看一个', prompt: '纵队数量有限。围歼线、钳制线、阻击线该怎么分？任何一线空了，对方就会从那里顶开包围圈。',
+    options: [
+      { id: 'opt1', label: '吃一个、挟一个、看一个', desc: '三线各留兵，围歼线最厚，阻击线最薄但不能空。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt2', label: '三线并进，全线压缩', desc: '每处都加力，但每一处都不够厚。', hint: '兵力摊薄。' },
+      { id: 'opt3', label: '抽阻击线，补围歼线', desc: '先吃掉一处，援军上来再回头。', hint: '快，但援军可能北上。' },
+      { id: 'opt4', label: '只留监视部队，其余休整', desc: '省兵力，但对方可能收缩或突围。', hint: '保守。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd10', title: '支前运力：民工动员到什么程度', prompt: '前线每天要粮要弹。动员规模越大，前送越稳，民工的疲劳与新区负担也越重。',
+    options: [
+      { id: 'opt1', label: '全力动员，按区县编队前送', desc: '运力上得去，但民工疲劳会累积、连续动员后要减半。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt2', label: '轮换动员，前后方分批', desc: '能持久，短期运力不如全力动员。', hint: '细水长流。' },
+      { id: 'opt3', label: '就地筹粮，减轻前送压力', desc: '来得快，但消耗新区粮食。', hint: '有代价。' },
+      { id: 'opt4', label: '主要靠缴获与战场补给', desc: '不动员民工，运力不稳。', hint: '不推荐。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd11', title: '策反点数怎么用', prompt: '隐蔽战线积攒的策反点数有限，用在哪一处，决定包围圈闭得多快、总攻时少流多少代价。',
+    options: [
+      { id: 'opt1', label: '集中争取双堆集方向的那一个师', desc: '内应送出部署与突围方向，包围圈提前收口。', hint: '历史上的选择（战场转向）。', recommended: true },
+      { id: 'opt2', label: '争取贾汪余部，巩固徐州东北', desc: '扩大已经拿到的通道，但难以立竿见影。', hint: '稳。' },
+      { id: 'opt3', label: '广播与喊话普遍瓦解', desc: '面广而慢，靠时间换投诚人数。', hint: '慢工。' },
+      { id: 'opt4', label: '不投入，兵力全部用在正面', desc: '省下点数，正面压力更大。', hint: '硬打。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd12', title: '陈官庄：第16兵团要突围', prompt: '包围圈里的第16兵团战力最弱、最先动摇。是收紧包围圈等它自己垮，还是围三缺一诱它出来？',
+    options: [
+      { id: 'opt1', label: '收紧包围圈，任其自溃', desc: '对方突围时在野战中解决，代价最小。', hint: '历史上的选择。', recommended: true },
+      { id: 'opt2', label: '围三缺一，诱其突围', desc: '在运动中歼敌，但可能跑掉一部。', hint: '需要预判。' },
+      { id: 'opt3', label: '立即总攻，趁冻饿一举解决', desc: '快，但伤亡大。', hint: '代价高。' },
+      { id: 'opt4', label: '政治争取，派人接洽', desc: '减少伤亡，但要时间。', hint: '慢。' },
+    ],
+    defaultOption: 'opt1',
+  },
 ]
 
 const difficulty: Record<DifficultyId, Difficulty> = {
@@ -171,6 +265,7 @@ export const huaihaiCampaign: OpsCampaign = {
       { title: '宿县与徐蚌线', text: '11 月中旬攻占宿县，切断徐州与蚌埠的联系，使徐州集团成为孤岛。' },
       { title: '第三阶段：陈官庄', text: '12 月 1 日徐州集团弃城南撤，被追堵于陈官庄地区。12 月 6 日第 16 兵团自行突围被歼；围而不打、政治攻势二十余日，1949 年 1 月 6 日总攻，1 月 10 日结束。' },
       { title: '支前后勤', text: '据公开党史军史资料，支前民工约 543 万人次，大小车 88 万余辆，粮食约 9.6 亿斤。后勤是淮海战役的另一条战线。' },
+      { title: '三线配平', text: '总前委以"吃一个、挟一个、看一个"配置兵力：一路围歼，一路钳制徐州东援，一路阻击蚌埠北援。任一线抽空，包围圈就会被顶开。' },
       { title: '数字口径', text: '解放军约 60 万；国民党军战前约 60 万、累计投入约 80 万。战果与损失各说不一，游戏内只作分档处理，不给出精确数字。' },
     ],
     disclaimer: '本作以公开党史军史资料为背景进行写意改编：地图、兵力、时间线均经游戏化处理；指挥机构以职务代称，不出现具体人物；数字存在统计口径差异，不代表严格战史。',
@@ -209,3 +304,5 @@ export const huaihaiCampaign: OpsCampaign = {
   ],
   rulesId: 'huaihai-1948',
 }
+
+export { cities as huaihaiCities, roads as huaihaiRoads }

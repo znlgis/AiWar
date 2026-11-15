@@ -6,6 +6,10 @@ import { guilingCampaign, narrator } from './index.js'
 import { siduCampaign } from './ops/siduchishui/data.js'
 import siduRules from './ops/siduchishui/rules.js'
 import { makeOpsNarrator } from './ops/narrator.js'
+import { SIDU_CORPUS } from './ops/siduchishui/corpus.js'
+import { HUAIHAI_CORPUS } from './ops/huaihai/corpus.js'
+import { FEISHUI_CORPUS } from './ops/feishui/corpus.js'
+import { CHIBI_CORPUS } from './ops/chibi/corpus.js'
 import { huaihaiCampaign } from './ops/huaihai/data.js'
 import huaihaiRules from './ops/huaihai/rules.js'
 import { feishuiCampaign } from './ops/feishui/data.js'
@@ -109,7 +113,8 @@ export const siduchishuiPack: OpsPack = {
   unitsLabel: '红军',
   enemyLabel: '国民党军',
   campaign: siduCampaign,
-  narrative: makeOpsNarrator(),
+  // 专属语料接在通用语料之后：同一 key 的句子池相加，战役特有的句子优先被抽到
+  narrative: makeOpsNarrator(SIDU_CORPUS),
   rules: siduRules,
 }
 
@@ -130,7 +135,7 @@ export const huaihaiPack: OpsPack = {
     { id: 'hold', label: '驻守' }, { id: 'strike', label: '突击' },
   ],
   unitsLabel: '解放军', enemyLabel: '国民党军',
-  campaign: huaihaiCampaign, narrative: makeOpsNarrator(), rules: huaihaiRules,
+  campaign: huaihaiCampaign, narrative: makeOpsNarrator(HUAIHAI_CORPUS), rules: huaihaiRules,
 }
 
 export const feishuiPack: OpsPack = {
@@ -150,7 +155,7 @@ export const feishuiPack: OpsPack = {
     { id: 'hold', label: '驻守' },
   ],
   unitsLabel: '晋军', enemyLabel: '秦军',
-  campaign: feishuiCampaign, narrative: makeOpsNarrator(), rules: feishuiRules,
+  campaign: feishuiCampaign, narrative: makeOpsNarrator(FEISHUI_CORPUS), rules: feishuiRules,
 }
 
 export const chibiPack: OpsPack = {
@@ -170,7 +175,7 @@ export const chibiPack: OpsPack = {
     { id: 'cross', label: '渡江' }, { id: 'hold', label: '驻守' },
   ],
   unitsLabel: '联军', enemyLabel: '曹军',
-  campaign: chibiCampaign, narrative: makeOpsNarrator(), rules: chibiRules,
+  campaign: chibiCampaign, narrative: makeOpsNarrator(CHIBI_CORPUS), rules: chibiRules,
 }
 
 export const PACKS: Pack[] = [guilingPack, siduchishuiPack, huaihaiPack, feishuiPack, chibiPack]

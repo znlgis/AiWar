@@ -1,7 +1,8 @@
 // 通用战役引擎类型：支持任意战役（陆战/水战/20世纪战役）复用同一套推演内核。
 import type {
-  Confidence, DecisionNodeDef, Difficulty, DifficultyId, FactionId, Report, ScorePart, SourceId, Trace,
+  Confidence, DecisionNodeDef, Difficulty, DifficultyId, FactionId, MapTerrain, Report, ScorePart, SourceId, Trace,
 } from './types.js'
+import type { BattleRecord, CityRecord, ChoiceRecord, OrderRecord } from './ledger.js'
 
 export type OpsTerrain = 'plain' | 'mountain' | 'river' | 'city' | 'water'
 export type OpsTroopType = 'infantry' | 'armor' | 'cavalry' | 'fleet' | 'mixed'
@@ -98,6 +99,11 @@ export interface OpsBattle {
   ambush: boolean
   attackerInitial: number
   defenderInitial: number
+  /** 逐日累计折损，供战报结算用；缺失时按 0 处理 */
+  attackerLost?: number
+  defenderLost?: number
+  /** 开战日序；老存档无此字段时由记录处兜底 */
+  firstTick?: number
   log: string[]
 }
 
@@ -136,6 +142,8 @@ export interface OpsCampaignMeta {
 
 export interface OpsCampaign {
   meta: OpsCampaignMeta
+  /** 战场地形：山系、河流、湖泊、关隘。纯渲染用，不参与推演 */
+  terrain?: MapTerrain[]
   playerFaction: FactionId
   enemyFactions: FactionId[]
   factions: Record<string, { name: string; color: string; short: string }>
@@ -180,6 +188,11 @@ export interface OpsState {
   over: boolean
   endingId: string | null
   log: string[]
+  /** 以下四个账本只增不删，供结算页生成战报；旧存档缺省时按空数组处理 */
+  battleLog: BattleRecord[]
+  cityLog: CityRecord[]
+  choiceLog: ChoiceRecord[]
+  orderLog: OrderRecord[]
   reportSeq: number
   battleSeq: number
   narrativeSalt: number

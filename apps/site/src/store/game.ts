@@ -5,7 +5,7 @@ import type {
 import {
   advanceDay, advanceOpsDay, canIssue, canIssueOpsOrder, createGame, createOpsState, finalize,
   issueOrder, issueOpsOrder, orderSentence, resolveDecision, resolveOpsNode,
-  seedOpening, timeoutNode, timeoutOpsNode,
+  seedOpening, timeoutNode, timeoutOpsNode, debriefForLegacy, debriefForOps,
 } from '@aiwar/sim'
 import { PACKS, getPack } from '@aiwar/content'
 import { projectLegacy, projectOps, type UiState, type ViewName } from './project'
@@ -65,10 +65,19 @@ function toScore(raw: OpsScore, pack: ReturnType<typeof currentPack>): Score {
   } as unknown as Score
 }
 
-function projectNow(): UiState {
+function projectNow(abandoned = false): UiState {
   const pack = currentPack()
   if (pack.engine === 'legacy' && legacy) {
-    const ui = projectLegacy(legacy, pack.campaign)
+    const score = legacy.over ? finalize(legacy, pack.campaign) : null
+    const debriefScore = score ?? (abandoned ? finalize(legacy, pack.campaign) : null)
+    const debrief = debriefScore
+      ? debriefForLegacy(legacy, pack.campaign, debriefScore, {
+        abandoned,
+        playerLabel: pack.unitsLabel,
+        enemyLabel: pack.enemyLabel,
+      })
+      : null
+    const ui = projectLegacy(legacy, pack.campaign, debriefScore, debrief)
     ui.paused = store.ui ? store.ui.paused : true
     ui.speed = store.ui ? store.ui.speed : 1
     ui.decisionSeconds = store.ui?.decisionSeconds ?? 0
@@ -76,8 +85,16 @@ function projectNow(): UiState {
   }
   if (pack.engine === 'ops' && ops) {
     const hud = pack.rules.hud?.(ops, pack.campaign)
-    const score = ops.over ? toScore(pack.rules.score(ops, pack.campaign), pack) : null
-    const ui = projectOps(ops, pack.campaign, hud, score, { player: pack.unitsLabel, enemy: pack.enemyLabel })
+    const raw = ops.over || abandoned ? pack.rules.score(ops, pack.campaign) : null
+    const score = raw ? toScore(raw, pack) : null
+    const debrief = raw
+      ? debriefForOps(ops, pack.campaign, raw, {
+        abandoned,
+        playerLabel: pack.unitsLabel,
+        enemyLabel: pack.enemyLabel,
+      })
+      : null
+    const ui = projectOps(ops, pack.campaign, hud, score, { player: pack.unitsLabel, enemy: pack.enemyLabel }, debrief)
     ui.paused = store.ui ? store.ui.paused : true
     ui.speed = store.ui ? store.ui.speed : 1
     ui.decisionSeconds = store.ui?.decisionSeconds ?? 0
@@ -108,16 +125,20 @@ function refreshSaves(): void {
   store.hasSave = saved.length > 0
 }
 
-function finish(): void {
+/**
+ * 进入结算页。不论输赢都走这里——包括玩家主动「放弃」的残局。
+ * abandoned 为 true 时战报标记「弃局」，仍生成完整编年与分项解读，不再像以前那样直接删档回标题。
+ */
+function finish(abandoned = false): void {
   stop()
-  if (ops) {
+  if (ops && !abandoned) {
     ops.over = true
     if (!ops.endingId) ops.endingId = 'stalemate'
   }
-  store.ui = projectNow()
+  store.ui = projectNow(abandoned)
   store.view = 'result'
-  const total = store.ui.score?.total ?? 0
-  if (total >= 75) sfx.win()
+  const verdict = store.ui?.debrief?.verdict
+  if (verdict === 'win') sfx.win()
   else sfx.lose()
 }
 
@@ -313,8 +334,21 @@ export function exitToTitle(): void {
   backToTitle()
 }
 
+/**
+ * 放弃当前战局：先去结算页看残局战报，再由玩家决定是否返回标题。
+ * 原实现是确认后直接删档回标题，等于放弃的那一局什么都不会留下。
+ */
 export function abandon(): void {
-  if (!window.confirm('放弃当前战局并返回标题？')) return
+  if (!activeState()) { backToTitle(); return }
+  if (!window.confirm('放弃当前战局？会先生成本局的残局战报。')) return
+  try { localStorage.removeItem(SAVE_PREFIX + currentPack().id) } catch { /* 忽略 */ }
+  if (decisionTimer) window.clearInterval(decisionTimer)
+  refreshSaves()
+  finish(true)
+}
+
+/** 结算页「丢弃本局并返回标题」 */
+export function discardAndExit(): void {
   try { localStorage.removeItem(SAVE_PREFIX + currentPack().id) } catch { /* 忽略 */ }
   legacy = null
   ops = null

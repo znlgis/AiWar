@@ -1,5 +1,6 @@
 import type { Campaign, GameState, Narrative } from './types.js'
 import { pushReport } from './reports.js'
+import { recordChoice } from './ledger.js'
 import { clamp } from './rng.js'
 import { shortestDays, total } from './state.js'
 
@@ -60,7 +61,10 @@ export function openNode(state: GameState, nodeId: string): void {
   state.decisionWindowEnd = null
 }
 
-export function resolveNode(state: GameState, campaign: Campaign, narrative: Narrative, nodeId: string, optionId: string): NodeDecisionResult {
+export function resolveNode(
+  state: GameState, campaign: Campaign, narrative: Narrative, nodeId: string, optionId: string,
+  opts: { timeout?: boolean } = {},
+): NodeDecisionResult {
   const node = campaign.decisions.find(n => n.id === nodeId)
   if (!node) return { ok: false, reason: '节点不存在' }
   if (state.resolvedNodes.includes(nodeId)) return { ok: false, reason: '该决策已执行' }
@@ -70,6 +74,15 @@ export function resolveNode(state: GameState, campaign: Campaign, narrative: Nar
   const salt = state.narrativeSalt++
   applyOption(state, nodeId, optionId)
   const chosen = node.options.find(o => o.id === optionId)
+  recordChoice(state, {
+    nodeId,
+    optionId,
+    tick: state.tick + 1,
+    title: node.title,
+    label: chosen?.label ?? optionId,
+    recommended: chosen?.recommended === true,
+    timeout: opts.timeout === true,
+  })
   const text = narrative.line('decision.' + optionId, { node: node.title, choice: chosen?.label ?? '依令而行' }, salt)
     || ('御前定策：' + (chosen?.label ?? '依令而行') + '。')
   pushReport(state, 'note', '临淄', text, 'high', 0, true)

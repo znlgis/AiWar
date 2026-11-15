@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { store } from '../../store/game'
+import { curvedRoadPath } from '../../store/mapGeometry'
 
 const ui = computed(() => store.ui!)
-const pointsStr = (pts: [number, number][]) => pts.map(p => p[0] + ',' + p[1]).join(' ')
 const roads = computed(() => ui.value.roads.filter(r => {
   const a = ui.value.cities.find(c => c.id === r.from)
   const b = ui.value.cities.find(c => c.id === r.to)
   return !!a && !!b && (a.known || b.known)
-}))
+}).map(r => ({
+  ...r,
+  // 道路走一条轻微弧线：直线在密集的路网上像网格，弧线更像手绘
+  d: curvedRoadPath(r.x1, r.y1, r.x2, r.y2, r.kind === 'river' ? 0.05 : 0.07),
+})))
 
 // —— 视口：平移 + 缩放（拖动 / 滚轮 / 双指 / 双击复位）——
 // 视野按战役地图尺寸推导：写死 900×540 会把四渡赤水的皎平渡等南部城邑裁在画外
@@ -23,31 +27,62 @@ const MAX_K = 4.5
 const view = reactive({ x: 0, y: 0, k: 1 })
 const svgRef = ref<SVGSVGElement | null>(null)
 
-// 城名标签做重叠剔除：城邑密集时（如淮海、淝水寿阳周边）标签会压在一起，
-// 优先保留都城、被围之城与玩家城，其余按顺序放置，放不下就不画名字（标记仍在）。
-const labelIds = computed(() => {
-  const placed: { x1: number; y1: number; x2: number; y2: number }[] = []
-  const out = new Set<string>()
+// 城名标签放置：城邑密集时（淮海、淝水寿阳周边）名字会压在一起。
+// 原来的做法是「只试正下方一个位置，压到就整条不画」，城区一密就有一半城名消失。
+// 改成：按优先级依次放置，每个城试下/上/右/左四个候选位，取重叠面积最小的那个；
+// 四个位置都压得厉害时仍保留标记、放弃文字，避免糊成一团。
+type Box = { x1: number; y1: number; x2: number; y2: number }
+const LABEL_FS = 13.5
+
+function overlapArea(a: Box, b: Box): number {
+  const w = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1)
+  const h = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1)
+  return w > 0 && h > 0 ? w * h : 0
+}
+
+const labelPlacement = computed(() => {
+  const placed: Box[] = []
+  const labels: { id: string; x: number; y: number; anchor: string }[] = []
   const priority = (c: { kind: string; besieged: boolean; owner: string }) =>
     c.kind === 'capital' ? 0 : c.besieged ? 1 : c.owner === ui.value.playerFaction ? 2 : 3
   const list = ui.value.cities
     .filter(c => c.known || c.owner === ui.value.playerFaction)
     .slice()
     .sort((a, b) => priority(a) - priority(b))
-  const fs = 13.5
   for (const c of list) {
-    const w = c.name.length * fs + 6
-    const h = fs + 5
-    const x1 = c.x - w / 2
-    const x2 = c.x + w / 2
-    const y1 = c.y + 12
-    const y2 = y1 + h
-    if (placed.some(r => !(x2 < r.x1 || x1 > r.x2 || y2 < r.y1 || y1 > r.y2))) continue
-    placed.push({ x1, y1, x2, y2 })
-    out.add(c.id)
+    const w = c.name.length * LABEL_FS + 6
+    const h = LABEL_FS + 5
+    const candidates = [
+      { dx: 0, dy: 12 + h, anchor: 'middle' },   // 正下方
+      { dx: 0, dy: -10 - h, anchor: 'middle' },  // 正上方
+      { dx: 10, dy: -h / 2, anchor: 'start' },   // 右侧
+      { dx: -10, dy: -h / 2, anchor: 'end' },    // 左侧
+    ]
+    let best: { box: Box; x: number; y: number; anchor: string; cost: number } | null = null
+    for (const cand of candidates) {
+      const left = cand.anchor === 'start' ? c.x + cand.dx : cand.anchor === 'end' ? c.x + cand.dx - w : c.x - w / 2
+      const top = c.y + cand.dy
+      const box: Box = { x1: left, y1: top, x2: left + w, y2: top + h }
+      // 与已放置标签的重叠 + 与城邑标记（半径 8）的重叠，都算代价
+      let cost = placed.reduce((sum, r) => sum + overlapArea(box, r), 0)
+      for (const other of list) {
+        if (other.id === c.id) continue
+        const marker: Box = { x1: other.x - 8, y1: other.y - 8, x2: other.x + 8, y2: other.y + 8 }
+        cost += overlapArea(box, marker) * 3
+      }
+      if (!best || cost < best.cost) best = { box, x: left, y: top + h - 6, anchor: cand.anchor, cost }
+    }
+    if (!best) continue
+    // 代价超过标签面积的 60% 就不画文字（标记仍在），否则字会压成一团
+    if (best.cost > (w * h) * 0.6) continue
+    placed.push(best.box)
+    labels.push({ id: c.id, x: best.anchor === 'middle' ? c.x : best.x + (best.anchor === 'end' ? w : 0), y: best.y, anchor: best.anchor })
   }
-  return out
+  return labels
 })
+
+const labelIds = computed(() => new Set(labelPlacement.value.map(l => l.id)))
+const labelBox = computed(() => new Map(labelPlacement.value.map(l => [l.id, l])))
 
 // 同城多支部队时把标记扇形排开：否则「北府兵」与「水军」会叠在同一个点上，谁也看不清
 const armyMarkers = computed(() => {
@@ -194,23 +229,81 @@ onBeforeUnmount(() => {
     >
       <rect :x="-40" :y="-40" :width="ui.mapWidth + 80" :height="ui.mapHeight + 80" fill="#f7f6f1" />
       <g :transform="'translate(' + view.x + ',' + view.y + ') scale(' + view.k + ')'">
-        <g>
-          <polygon
-            v-for="area in ui.areas"
-            :key="area.faction"
-            :points="pointsStr(area.points)"
-            :fill="area.color"
-            fill-opacity="0.10"
-            :stroke="area.color"
-            stroke-opacity="0.28"
-            stroke-width="1"
-          />
+        <!-- 地形层：山系笔触、河流、湖泊。压在势力区之下，先读地理再读战线 -->
+        <g class="terrain">
+          <template v-for="t in ui.terrain" :key="t.key">
+            <path
+              v-if="t.kind === 'lake' || t.kind === 'coast'"
+              :d="t.d"
+              fill="#dbe6ea"
+              fill-opacity="0.55"
+              stroke="#9fb8c0"
+              stroke-opacity="0.5"
+              stroke-width="0.8"
+            />
+            <path
+              v-else-if="t.kind === 'ridge'"
+              :d="t.d"
+              fill="none"
+              stroke="#a89c86"
+              stroke-opacity="0.35"
+              stroke-width="1"
+            />
+            <path
+              v-else
+              :d="t.d"
+              fill="none"
+              :stroke="t.kind === 'pass' ? '#9a7f5a' : '#7fa3ad'"
+              :stroke-opacity="t.kind === 'pass' ? 0.75 : 0.85"
+              :stroke-width="t.weight === 3 ? 2 : t.weight === 2 ? 1.4 : 1"
+              :stroke-dasharray="t.kind === 'pass' ? '5 4' : undefined"
+              stroke-linecap="round"
+            />
+            <path
+              v-if="t.kind === 'ridge' && t.hatch"
+              :d="t.hatch"
+              fill="none"
+              stroke="#9c8f78"
+              stroke-opacity="0.7"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </template>
+          <text
+            v-for="t in ui.terrain.filter(x => x.labelAt && x.name)"
+            :key="t.key + '-label'"
+            class="terrain-label"
+            :x="t.labelAt!.x + 2"
+            :y="t.labelAt!.y - 7"
+            text-anchor="middle"
+            font-size="10.5"
+            fill="#8b9aa0"
+          >{{ t.name }}</text>
         </g>
         <g>
-          <line
+          <!-- 势力区按「最近城邑」划分：同势力相邻格只填色不描边，接成一片；
+               描边会在格子之间留下接缝，看着像一堆泡泡而不是疆域。 -->
+          <template v-for="area in ui.areas" :key="area.faction">
+            <path
+              v-for="cell in area.cells"
+              :key="cell.key"
+              :d="cell.path"
+              :fill="area.color"
+              fill-opacity="0.13"
+              :stroke="area.color"
+              stroke-opacity="0.13"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+            />
+          </template>
+        </g>
+        <g>
+          <path
             v-for="r in roads"
             :key="r.id"
-            :x1="r.x1" :y1="r.y1" :x2="r.x2" :y2="r.y2"
+            :d="r.d"
+            fill="none"
             :stroke="r.kind === 'river' ? '#7fa3ad' : r.kind === 'pass' ? '#9a7f5a' : '#c4c1b6'"
             :stroke-width="r.kind === 'river' ? 2.2 : r.kind === 'pass' ? 1.6 : 1.2"
             :stroke-dasharray="r.kind === 'pass' ? '6 4' : undefined"
@@ -226,7 +319,14 @@ onBeforeUnmount(() => {
               <rect v-else-if="c.kind === 'fort'" x="-5" y="-5" width="10" height="10" :fill="c.color" stroke="#fffdf8" stroke-width="2" />
               <circle v-else r="5.2" :fill="c.color" stroke="#fffdf8" stroke-width="1.8" />
               <circle v-if="c.besieged" r="13" fill="none" :stroke="c.color" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.8" />
-              <text v-if="labelIds.has(c.id)" class="city-label" y="22" text-anchor="middle" font-size="13.5" fill="#24262a" font-weight="600">{{ c.name }}</text>
+              <text
+                v-if="labelBox.get(c.id)"
+                class="city-label"
+                :x="labelBox.get(c.id)!.x - c.x"
+                :y="labelBox.get(c.id)!.y - c.y"
+                :text-anchor="labelBox.get(c.id)!.anchor"
+                font-size="13.5" fill="#24262a" font-weight="600"
+              >{{ c.name }}</text>
             </template>
             <template v-else>
               <circle r="4.5" fill="#d6d3c9" stroke="#bdb9ad" stroke-width="1" stroke-dasharray="2 2" />
@@ -263,6 +363,8 @@ onBeforeUnmount(() => {
 .map-wrap { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: #f7f6f1; overflow: hidden; }
 .map-wrap.dragging { cursor: grabbing; }
 .map-svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; user-select: none; }
+.terrain { pointer-events: none; }
+.terrain-label { font-family: var(--font); user-select: none; letter-spacing: .16em; opacity: .8; }
 .map-svg:active { cursor: grabbing; }
 text { font-family: var(--font); user-select: none; }
 .map-tools { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 6px; align-items: center; }

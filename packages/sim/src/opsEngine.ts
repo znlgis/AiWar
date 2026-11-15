@@ -3,6 +3,7 @@ import type {
   OpsArmyState, OpsBattle, OpsCampaign, OpsCityState, OpsNarrative, OpsRules, OpsState, OpsTask,
 } from './opsTypes.js'
 import { makeRng, clamp } from './rng.js'
+import { emptyLedgers, recordBattle, recordCity, recordChoice, recordOrder } from './ledger.js'
 
 // ---------- 创建 ----------
 
@@ -70,6 +71,7 @@ export function createOpsState(campaign: OpsCampaign, difficulty: OpsState['diff
     over: false,
     endingId: null,
     log: [],
+    ...emptyLedgers(),
     reportSeq: 0,
     battleSeq: 0,
     narrativeSalt: 0,
@@ -197,6 +199,7 @@ export function issueOpsOrder(state: OpsState, draft: OpsOrderDraft): void {
     arriveTick: state.tick + (draft.task === 'defect' ? 2 : 1),
   })
   if (draft.task !== 'hold') state.tokens = clamp(state.tokens - 1, 0, 3)
+  recordOrder(state, { tick: state.tick + 1, task: draft.task, armyIds: [...draft.armyIds], target: draft.target, result: 'ok' })
 }
 
 export function applyOpsOrders(state: OpsState): void {
@@ -292,15 +295,19 @@ export function moveArmies(state: OpsState, campaign: OpsCampaign): void {
     if (!next) { army.order.arrived = true; continue }
     const road = roadBetween(state.roads, here, next)
     if (!road) {
+      const task = army.order?.task ?? 'march'
       army.route = []
       army.order = null
       addReport(state, 'court', state.cities[here]?.name ?? '军前', army.name + '找不到通往目标的道路，军令已废。', 'high', 1, true)
+      recordOrder(state, { tick: state.tick + 1, task, armyIds: [army.id], target, result: 'void', reason: '找不到道路' })
       continue
     }
     if (road.kind === 'water' && !army.naval) {
+      const task = army.order?.task ?? 'march'
       army.order = null
       army.route = []
       addReport(state, 'court', state.cities[here]?.name ?? '军前', army.name + '无舟楫，不能渡水，军令已废。', 'high', 1, true)
+      recordOrder(state, { tick: state.tick + 1, task, armyIds: [army.id], target, result: 'void', reason: '无舟楫' })
       continue
     }
     army.pos = { kind: 'road', road: road.id, from: here, to: next, progress: 0 }
@@ -387,6 +394,7 @@ export function detectBattles(state: OpsState, campaign: OpsCampaign, narrative:
       ambush,
       attackerInitial: totalTroops(state, attacker.map(a => a.id)),
       defenderInitial: totalTroops(state, defender.map(a => a.id)),
+      firstTick: state.tick + 1,
       log: [],
     }
     for (const id of battle.attackerIds.concat(battle.defenderIds)) {
@@ -445,6 +453,9 @@ export function battleTick(state: OpsState, campaign: OpsCampaign, narrative: Op
       d.morale = clamp(d.morale - 2, 5, 100)
     }
     battle.days += 1
+    // 只累加计数，不参与任何判定：回归测试的评级/分数不应因此变化
+    battle.attackerLost = (battle.attackerLost ?? 0) + atkLost
+    battle.defenderLost = (battle.defenderLost ?? 0) + defLost
     battle.log.push('第' + battle.days + '日 攻方折损' + Math.round(atkLost) + '，守方折损' + Math.round(defLost))
     const atkNow = totalTroops(state, battle.attackerIds)
     const defNow = totalTroops(state, battle.defenderIds)
@@ -541,6 +552,24 @@ function resolveBattle(state: OpsState, campaign: OpsCampaign, narrative: OpsNar
       cityHere.morale = clamp(cityHere.morale - 12, 5, 100)
     }
   }
+  // 战报账本：先把这场仗记下来，再从活动战斗列表里移除（原实现直接删，战后无从复盘）
+  const playerSide: 'attacker' | 'defender' | 'none' = battle.attackerIds.some(id => state.armies[id]?.faction === state.playerFaction)
+    ? 'attacker'
+    : battle.defenderIds.some(id => state.armies[id]?.faction === state.playerFaction) ? 'defender' : 'none'
+  recordBattle(state, {
+    id: battle.id,
+    place,
+    city: battle.city,
+    tick: battle.firstTick ?? state.tick + 1,
+    days: Math.max(1, battle.days),
+    attackerLost: Math.round(battle.attackerLost ?? 0),
+    defenderLost: Math.round(battle.defenderLost ?? 0),
+    attackerInitial: Math.round(battle.attackerInitial),
+    defenderInitial: Math.round(battle.defenderInitial),
+    winner,
+    ambush: battle.ambush,
+    playerSide,
+  })
   state.battles = state.battles.filter(b => b.id !== battle.id)
   const winnerName = winner === 'draw' ? '' : (winner === 'attacker' ? battle.attackerIds[0] : battle.defenderIds[0])
   const winnerFaction = winnerName ? state.armies[winnerName]?.faction : undefined
@@ -583,7 +612,12 @@ export function siegeTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
     // 无守备的城池：进入即接管（弃城 / 守军已撤）
     if (city.garrison < 300) {
       const holder = hostile[0]!.faction
+      const previous = city.owner
       city.owner = holder
+      // 华容道这类「道路节点」不是城邑，不该进战报的城邑账本
+      if (city.kind !== 'road') {
+        recordCity(state, { city: city.id, name: city.name, tick: state.tick + 1, from: previous, to: holder, cause: 'empty' })
+      }
       city.garrison = 0
       city.besieged = false
       say(state, narrative, 'border', city.name, 'siege.fall', { city: city.name, side: holder === state.playerFaction ? '我军' : '敌方' }, 'high', 1, true)
@@ -610,7 +644,11 @@ export function siegeTick(state: OpsState, campaign: OpsCampaign, narrative: Ops
     }
     if (city.garrison <= city.initialGarrison * 0.18 || city.grain <= 0) {
       const owner = hostile[0].faction
+      const previous = city.owner
       city.owner = owner
+      if (city.kind !== 'road') {
+        recordCity(state, { city: city.id, name: city.name, tick: state.tick + 1, from: previous, to: owner, cause: assaulting.length > 0 ? 'siege' : 'empty' })
+      }
       city.garrison = Math.round(city.initialGarrison * 0.2)
       city.grain = Math.max(5, city.grain)
       city.besieged = false
@@ -770,7 +808,10 @@ export function advanceOpsDay(state: OpsState, campaign: OpsCampaign, narrative:
   return { pendingNode: state.pendingNode, over: state.over }
 }
 
-export function resolveOpsNode(state: OpsState, campaign: OpsCampaign, narrative: OpsNarrative, rules: OpsRules, nodeId: string, optionId: string): boolean {
+export function resolveOpsNode(
+  state: OpsState, campaign: OpsCampaign, narrative: OpsNarrative, rules: OpsRules,
+  nodeId: string, optionId: string, opts: { timeout?: boolean } = {},
+): boolean {
   const node = campaign.decisions.find(d => d.id === nodeId)
   if (!node || state.resolvedNodes.includes(nodeId)) return false
   state.resolvedNodes.push(nodeId)
@@ -778,6 +819,16 @@ export function resolveOpsNode(state: OpsState, campaign: OpsCampaign, narrative
   const salt = state.narrativeSalt++
   rules.applyDecision(state, campaign, narrative, nodeId, optionId)
   const choice = node.options.find(o => o.id === optionId)
+  // 决策账本：战时只顾着记一句 log，战后没法复盘「这个选择在几天后反噬」
+  recordChoice(state, {
+    nodeId,
+    optionId,
+    tick: state.tick + 1,
+    title: node.title,
+    label: choice?.label ?? optionId,
+    recommended: choice?.recommended === true,
+    timeout: opts.timeout === true,
+  })
   addReport(state, 'note', '军前', narrative.line('decision.' + optionId, { node: node.title, choice: choice?.label ?? '' }, salt) || ('既定：' + (choice?.label ?? '依令而行')), 'high', 0, true)
   state.log.push('第' + (state.tick + 1) + '日：' + node.title + ' — ' + (choice?.label ?? optionId))
   return true
@@ -795,7 +846,7 @@ export function timeoutOpsNode(state: OpsState, campaign: OpsCampaign, narrative
   state.tokens = clamp(state.tokens - 1, 0, 3)
   for (const army of armiesOf(state, state.playerFaction)) army.morale = clamp(army.morale - 3, 5, 100)
   addReport(state, 'court', '军前', '军议未决，逾时依令而行：' + (node.options.find(o => o.id === optionId)?.label ?? optionId) + '。此议耗去一枚军令牌。', 'high', 0, true)
-  resolveOpsNode(state, campaign, narrative, rules, node.id, optionId)
+  resolveOpsNode(state, campaign, narrative, rules, node.id, optionId, { timeout: true })
 }
 
 export type { OpsTask }

@@ -1,5 +1,6 @@
 import type { AppliedOrder, GameState, Modifier, Order, Task } from './types.js'
 import { clamp } from './rng.js'
+import { recordOrder } from './ledger.js'
 
 export interface OrderDraft {
   task: Task
@@ -72,6 +73,7 @@ export function issueOrder(state: GameState, draft: OrderDraft): Order | null {
   }
   state.orders.push(order)
   if (draft.task !== 'hold') state.tokens = clamp(state.tokens - 1, 0, 3)
+  recordOrder(state, { tick: state.tick + 1, task: draft.task, armyIds: [...draft.armyIds], target: draft.target, result: 'ok' })
   return order
 }
 

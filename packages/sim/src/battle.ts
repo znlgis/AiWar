@@ -1,6 +1,7 @@
 import type { ArmyState, Battle, Campaign, GameState, Narrative } from './types.js'
 import { clamp, jitter, makeRng } from './rng.js'
 import { pushReport } from './reports.js'
+import { recordBattle, recordCity } from './ledger.js'
 import { applyLosses, nearestFriendlyCity, power, total } from './state.js'
 
 function armiesAtCity(state: GameState, cityId: string, faction?: string): ArmyState[] {
@@ -45,6 +46,7 @@ export function detectBattle(state: GameState, campaign: Campaign, narrative: Na
     ambush,
     attackerInitial: sideTroops(state, attackerIds),
     defenderInitial: sideTroops(state, defenderIds),
+    firstTick: state.tick + 1,
     log: [],
   }
   for (const id of attackerIds.concat(defenderIds)) {
@@ -93,6 +95,8 @@ export function battleTick(state: GameState, campaign: Campaign, narrative: Narr
       d.morale = clamp(d.morale - 2, 5, 100)
     }
     battle.days += 1
+    battle.attackerLost = (battle.attackerLost ?? 0) + atkLost
+    battle.defenderLost = (battle.defenderLost ?? 0) + defLost
     battle.log.push('第' + battle.days + '日 攻方折损' + Math.round(atkLost) + '，守方折损' + Math.round(defLost))
     const atkNow = sideTroops(state, battle.attackerIds)
     const defNow = sideTroops(state, battle.defenderIds)
@@ -133,6 +137,23 @@ function finishBattle(state: GameState, battle: Battle, winner: 'attacker' | 'de
     const army = state.armies[id]
     if (army) army.inBattle = null
   }
+  const playerSide: 'attacker' | 'defender' | 'none' = battle.attackerIds.some(id => state.armies[id]?.faction === 'qi')
+    ? 'attacker'
+    : battle.defenderIds.some(id => state.armies[id]?.faction === 'qi') ? 'defender' : 'none'
+  recordBattle(state, {
+    id: battle.id,
+    place,
+    city: battle.city,
+    tick: battle.firstTick ?? state.tick + 1,
+    days: Math.max(1, battle.days),
+    attackerLost: Math.round(battle.attackerLost ?? 0),
+    defenderLost: Math.round(battle.defenderLost ?? 0),
+    attackerInitial: Math.round(battle.attackerInitial),
+    defenderInitial: Math.round(battle.defenderInitial),
+    winner,
+    ambush: battle.ambush,
+    playerSide,
+  })
   state.battles = state.battles.filter(b => b.id !== battle.id)
   if (winner === 'draw') {
     pushReport(state, 'border', place, narrative.line('battle.draw', { place }, state.narrativeSalt++), 'mid', 0, true)
@@ -201,7 +222,9 @@ export function siegeTick(state: GameState, campaign: Campaign, narrative: Narra
     const canCapture = assault || besiegers.some(a => a.id === weiId)
     if (canCapture && (city.garrison <= city.initialGarrison * campaign.balance.zhaoFallRatio || city.grain <= 0)) {
       const owner = besiegers[0].faction
+      const previousOwner = city.owner
       city.owner = owner
+      recordCity(state, { city: city.id, name: city.name, tick: state.tick + 1, from: previousOwner, to: owner, cause: assault ? 'assault' : 'siege' })
       city.garrison = Math.round(city.initialGarrison * 0.15)
       city.grain = Math.max(3, Math.round(city.grain * 0.5))
       city.wall = Math.max(1.2, city.wall)

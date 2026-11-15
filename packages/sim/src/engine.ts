@@ -9,6 +9,7 @@ import { politicsTick } from './politics.js'
 import { pangjuanTick } from './ai.js'
 import { checkEnd, defaultOptionFor, nodeTrigger, openNode, resolveNode } from './nodes.js'
 import { pushReport, reportLine } from './reports.js'
+import { recordOrder } from './ledger.js'
 
 export { resolveNode }
 
@@ -78,7 +79,7 @@ export function timeoutNode(state: GameState, campaign: Campaign, narrative: Nar
   const nodeId = state.pendingNode
   const quality = campaign.difficulty[state.difficulty].defaultQuality
   const optionId = defaultOptionFor(state, campaign, nodeId, quality)
-  resolveNode(state, campaign, narrative, nodeId, optionId)
+  resolveNode(state, campaign, narrative, nodeId, optionId, { timeout: true })
   return optionId
 }
 
@@ -129,8 +130,10 @@ function moveArmy(state: GameState, army: GameState['armies'][string], campaign:
   }
   const road = state.roads.find(r => (r.from === here && r.to === next) || (r.to === here && r.from === next))
   if (!road) {
+    const task = army.order?.task ?? 'march'
     army.route = []
     army.order = null
+    recordOrder(state, { tick: state.tick + 1, task, armyIds: [army.id], target, result: 'void', reason: '找不到道路' })
     return
   }
   // 魏军沿既定路线回师：逐城推进，不走捷径覆盖

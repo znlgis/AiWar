@@ -21,6 +21,15 @@ const cities: OpsCityDef[] = [
   { id: 'guiyang', name: '贵阳', x: 560, y: 512, owner: 'kmt', kind: 'capital', terrain: 'city', garrison: 6000, wall: 2.0, grain: 40 },
   { id: 'kunming', name: '昆明', x: 330, y: 620, owner: 'yunnan', kind: 'capital', terrain: 'plain', garrison: 8000, wall: 2.0, grain: 50 },
   { id: 'jiaopingdu', name: '皎平渡', x: 250, y: 470, owner: 'yunnan', kind: 'port', terrain: 'river', garrison: 700, wall: 0.8, grain: 6 },
+  // 以下 6 城补的是档案 §3.2 里「支线节点」与川滇公路上的必经点：
+  // 它们在史实路线里不是主战场，却是四次转向真正落地的地方（叙永的川南门户、清水江的佯动浮桥、
+  // 嵩明与曲靖的威逼昆明、龙街与树桔的两处备用渡口）。
+  { id: 'xushui', name: '叙永', x: 400, y: 508, owner: 'sichuan', kind: 'city', terrain: 'mountain', garrison: 1800, wall: 1.3, grain: 10 },
+  { id: 'qingjiang', name: '清水江', x: 648, y: 452, owner: 'kmt', kind: 'port', terrain: 'river', garrison: 400, wall: 0.8, grain: 6 },
+  { id: 'qujing', name: '曲靖', x: 498, y: 596, owner: 'yunnan', kind: 'city', terrain: 'plain', garrison: 2200, wall: 1.3, grain: 14 },
+  { id: 'songming', name: '嵩明', x: 412, y: 602, owner: 'yunnan', kind: 'city', terrain: 'plain', garrison: 900, wall: 1.0, grain: 9 },
+  { id: 'longjie', name: '龙街渡', x: 128, y: 566, owner: 'yunnan', kind: 'port', terrain: 'river', garrison: 800, wall: 0.9, grain: 5 },
+  { id: 'shujudu', name: '树桔渡', x: 150, y: 654, owner: 'yunnan', kind: 'port', terrain: 'river', garrison: 500, wall: 0.8, grain: 4 },
 ]
 
 const roads: OpsRoadDef[] = [
@@ -53,6 +62,31 @@ const roads: OpsRoadDef[] = [
   { id: 'r27', from: 'kunming', to: 'jiaopingdu', days: 3, kind: 'mountain', name: '禄劝北道' },
   { id: 'r28', from: 'songkan', to: 'tucheng', days: 3, kind: 'mountain' },
   { id: 'r29', from: 'chishuicheng', to: 'gulin', days: 2, kind: 'mountain' },
+  // 新增 23 条：一部分是档案 §3.3 里原有节点之间缺的边（茅台—遵义、鲁班场—太平渡、土城—叙永），
+  // 一部分是把新增 6 城接进路网。days 按「步兵日均 30 公里、山地 ×1.3」折算，跨河路段为 river 以便渡口机制生效。
+  { id: 'r30', from: 'gulin', to: 'xushui', days: 2, kind: 'mountain', name: '川滇道' },
+  { id: 'r31', from: 'chishuicheng', to: 'xushui', days: 2, kind: 'mountain' },
+  { id: 'r32', from: 'zhaxi', to: 'xushui', days: 2, kind: 'mountain' },
+  { id: 'r33', from: 'guiyang', to: 'qingjiang', days: 2, kind: 'road', name: '东出湘黔' },
+  { id: 'r34', from: 'qingjiang', to: 'wujiang', days: 3, kind: 'road' },
+  { id: 'r35', from: 'guiyang', to: 'qujing', days: 5, kind: 'road', name: '滇黔公路' },
+  { id: 'r36', from: 'qujing', to: 'songming', days: 2, kind: 'road' },
+  { id: 'r37', from: 'qujing', to: 'kunming', days: 5, kind: 'road' },
+  { id: 'r38', from: 'songming', to: 'kunming', days: 2, kind: 'road', name: '昆明东北道' },
+  { id: 'r39', from: 'songming', to: 'longjie', days: 3, kind: 'mountain' },
+  { id: 'r40', from: 'kunming', to: 'longjie', days: 4, kind: 'mountain', name: '元谋道' },
+  { id: 'r41', from: 'longjie', to: 'jiaopingdu', days: 4, kind: 'mountain', name: '金沙江南岸' },
+  { id: 'r42', from: 'kunming', to: 'shujudu', days: 6, kind: 'mountain', name: '东川道' },
+  { id: 'r43', from: 'shujudu', to: 'longjie', days: 3, kind: 'mountain' },
+  { id: 'r44', from: 'shujudu', to: 'jiaopingdu', days: 3, kind: 'mountain' },
+  { id: 'r45', from: 'maotai', to: 'zunyi', days: 3, kind: 'road', name: '仁怀道' },
+  { id: 'r46', from: 'lubanchang', to: 'taipingdu', days: 3, kind: 'mountain', name: '横向联络' },
+  { id: 'r47', from: 'tucheng', to: 'xushui', days: 3, kind: 'mountain' },
+  { id: 'r48', from: 'zhenxiong', to: 'kunming', days: 7, kind: 'mountain', name: '滇东北道' },
+  { id: 'r49', from: 'bijie', to: 'qujing', days: 8, kind: 'mountain' },
+  { id: 'r50', from: 'maotai', to: 'erlangtan', days: 1, kind: 'river', name: '赤水河上游' },
+  { id: 'r51', from: 'yuanhou', to: 'taipingdu', days: 2, kind: 'river', name: '赤水河东岸' },
+  { id: 'r52', from: 'xushui', to: 'bijie', days: 3, kind: 'mountain' },
 ]
 
 const armies: OpsArmyDef[] = [
@@ -68,6 +102,14 @@ const armies: OpsArmyDef[] = [
   { id: 'kmt-guizhou', name: '黔军王家烈部', faction: 'kmt', commander: '黔军', troops: 25000, type: 'infantry', morale: 58, fatigue: 8, training: 0.85, foodDays: 18, city: 'yaxi' },
   { id: 'kmt-yunnan', name: '滇军孙渡纵队', faction: 'yunnan', commander: '滇军孙渡纵队', troops: 15000, type: 'mixed', morale: 70, fatigue: 8, training: 1.0, foodDays: 20, city: 'zhenxiong' },
   { id: 'kmt-hunan', name: '湘军刘建绪部', faction: 'hunan', commander: '湘军刘建绪部', troops: 10000, type: 'infantry', morale: 66, fatigue: 8, training: 1.0, foodDays: 18, city: 'songkan' },
+  // 红五军团是后卫专业户（档案 §2.1 的 3 个团），干部团是精锐预备队：
+  // 这两支部队不进主力序列，但决定了「后卫能不能顶住」与「关键突破点还拿不拿得出人」。
+  { id: 'red-5', name: '红五军团', faction: 'red', commander: '红五军团', troops: 4500, type: 'infantry', morale: 64, fatigue: 20, training: 1.12, foodDays: 14, city: 'zunyi', stealth: 0.5 },
+  { id: 'red-cadre', name: '军委干部团', faction: 'red', commander: '军委干部团', troops: 2500, type: 'mixed', morale: 74, fatigue: 12, training: 1.3, foodDays: 15, city: 'zunyi', stealth: 0.4 },
+  // 川军南岸追堵部队的又一路（档案 §2.2 的 12 个旅之列），守住叙永这个川南门户
+  // 川军南岸追堵部队的又一路（档案 §2.2 的 12 个旅之列），守叙永这个川南门户。
+  // 刻意不放进追击名单：它守的是四川的门，不出省界——这正是档案 §6.6 的派系矛盾。
+  { id: 'kmt-chuan-3', name: '川军独立第四旅', faction: 'sichuan', commander: '川军独立第四旅', troops: 9000, type: 'infantry', morale: 66, fatigue: 10, training: 0.95, foodDays: 22, city: 'xushui' },
 ]
 
 const decisions = [
@@ -124,7 +166,7 @@ const decisions = [
   {
     id: 'd6', title: '鲁班场：打不打', prompt: '周浑元纵队在鲁班场预筑工事。是打，还是绕？若打，打到什么程度？',
     options: [
-      { id: 'opt1', label: '全力攻坚，力求歼灭', desc: '敌军有备，攻坚消耗大。', hint: '很可能得不偿失。' },
+      { id: 'opt1', label: '全力攻坚，力求击溃该敌', desc: '敌军有备，攻坚消耗大。', hint: '很可能得不偿失。' },
       { id: 'opt2', label: '有限攻击，牵制后即撤', desc: '以打促渡，把敌军钉在原地。', hint: '有限战争。', recommended: true },
       { id: 'opt3', label: '不打，直接三渡赤水', desc: '保存兵力，但敌军会继续尾随。', hint: '稳妥。' },
       { id: 'opt4', label: '佯攻后转兵茅台', desc: '用一次假进攻掩护渡河。', hint: '需要隐蔽。' },
@@ -148,6 +190,38 @@ const decisions = [
       { id: 'opt2', label: '全军走龙街渡', desc: '距离近，但江面宽、守军强、无船。', hint: '冒险。' },
       { id: 'opt3', label: '分兵多路同时抢渡', desc: '分散风险，也分散船只与指挥。', hint: '复杂。' },
       { id: 'opt4', label: '就地阻击，等追兵退后再渡', desc: '追兵不会退。', hint: '几乎必然失败。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  // 新增三个节点按「追加编号」落在 d9/d10/d11，实际触发次序是 d6 → d9 → d10 → d7 → d11 → d8：
+  // 已有 id 不能改，只能往后排；次序在 rules.ts 的 triggerNode 里显式写死并注明，避免编号误导。
+  {
+    id: 'd9', title: '三渡：佯动要做多大', prompt: '鲁班场撤下来，全军转到茅台。北面是川军江防，西面是赤水河。这一次渡河，是做给谁看的？',
+    options: [
+      { id: 'opt1', label: '大张旗鼓架浮桥，白日渡河，佯装北渡长江', desc: '船筏一字排开，白天过江，让敌人看见；主力过河后再回师。', hint: '佯动是打给敌人看的，不是给敌人打的。', recommended: true },
+      { id: 'opt2', label: '夜间静默渡河，不事张扬', desc: '隐蔽性好，但敌人不会被引向西面。', hint: '保住隐蔽，丢掉欺骗。' },
+      { id: 'opt3', label: '只架浮桥不渡河，主力隐蔽待机', desc: '省下渡河的工夫，佯动效果打对折。', hint: '折中方案。' },
+      { id: 'opt4', label: '全军真北进，趁势强渡长江', desc: '把佯动做成真动作，川军江防正面迎上。', hint: '风险最高。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd10', title: '南渡乌江：走哪个渡口', prompt: '四渡回师、南下乌江。江口、大塘、梯子岩三处渡口各有守军，浮桥只有一座。',
+    options: [
+      { id: 'opt1', label: '走江口渡口，工兵连夜架浮桥', desc: '渡口宽、能架桥，但敌军注意力也在这里。', hint: '一次过完，别拖到天亮。', recommended: true },
+      { id: 'opt2', label: '走大塘，徒涉过江', desc: '不架桥、不留痕迹，水急时危险。', hint: '隐蔽，但慢。' },
+      { id: 'opt3', label: '走梯子岩，绕远但守军薄弱', desc: '多走一天山路，换一个不设防的渡口。', hint: '用时间换安全。' },
+      { id: 'opt4', label: '沿江另寻渡口，临时架桥', desc: '敌人料不到，但工兵要在生疏的河段作业。', hint: '赌一把。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd11', title: '偏师：等不等红九军团', prompt: '主力已逼近昆明，红九军团还在东面单独行动。金沙江就在前面，等，还是不等？',
+    options: [
+      { id: 'opt1', label: '令红九军团单独由树桔渡过江，主力直趋皎平渡', desc: '两路分渡，主力不多耗一天。', hint: '史实就是这么走的。', recommended: true },
+      { id: 'opt2', label: '主力北返接应红九军团，会合后再一同渡江', desc: '稳妥，但多走两三天，追兵会贴上来。', hint: '拿时间换完整。' },
+      { id: 'opt3', label: '弃师独走，主力先渡，不等偏师', desc: '渡江最快，偏师可能被隔在江东。', hint: '赢了战役，丢了部队。' },
+      { id: 'opt4', label: '全军改走树桔渡，与偏师同渡', desc: '船更少、渡口更窄，全军挤在一处。', hint: '船数不够。' },
     ],
     defaultOption: 'opt1',
   },

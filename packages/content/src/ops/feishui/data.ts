@@ -1,10 +1,16 @@
 import type { OpsCampaign, OpsCityDef, OpsRoadDef, OpsArmyDef, DecisionNodeDef, Difficulty, DifficultyId } from '@aiwar/sim'
 
+// 城邑补齐到 26 个：新增的 8 座都在 383 年淮南战场的行军走廊上（陈留、新蔡、下蔡、汝阴、
+// 淮阴、历阳、夏口、竟陵），既有 18 座的坐标、归属与守备保持原样，避免改动已经跑通的战线。
 const cities: OpsCityDef[] = [
   { id: 'changan', name: '长安', x: 180, y: 180, owner: 'qin', kind: 'capital', terrain: 'plain', garrison: 20000, wall: 2.4, grain: 80 },
   { id: 'luoyang', name: '洛阳', x: 320, y: 240, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 12000, wall: 2.0, grain: 50 },
+  { id: 'chenliu', name: '陈留', x: 356, y: 292, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 8000, wall: 1.4, grain: 22 },
   { id: 'xiangcheng', name: '项城', x: 400, y: 330, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 30000, wall: 1.6, grain: 40 },
+  { id: 'xincai', name: '新蔡', x: 452, y: 330, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 6000, wall: 1.2, grain: 18 },
   { id: 'yingkou', name: '颍口', x: 404, y: 486, owner: 'qin', kind: 'port', terrain: 'river', garrison: 8000, wall: 1.2, grain: 20 },
+  { id: 'xiacai', name: '下蔡', x: 372, y: 396, owner: 'qin', kind: 'city', terrain: 'river', garrison: 5000, wall: 1.2, grain: 14 },
+  { id: 'ruyin', name: '汝阴', x: 300, y: 452, owner: 'qin', kind: 'city', terrain: 'river', garrison: 4000, wall: 1.1, grain: 12 },
   { id: 'shouyang', name: '寿阳', x: 520, y: 420, owner: 'jin', kind: 'city', terrain: 'city', garrison: 8000, wall: 1.8, grain: 26 },
   { id: 'xiashi', name: '硖石', x: 430, y: 372, owner: 'jin', kind: 'fort', terrain: 'mountain', garrison: 5000, wall: 1.6, grain: 12 },
   { id: 'bagongshan', name: '八公山', x: 524, y: 350, owner: 'jin', kind: 'fort', terrain: 'mountain', garrison: 800, wall: 1.0, grain: 4 },
@@ -14,13 +20,21 @@ const cities: OpsCityDef[] = [
   { id: 'hefei', name: '合肥', x: 560, y: 550, owner: 'jin', kind: 'city', terrain: 'river', garrison: 6000, wall: 1.8, grain: 30 },
   { id: 'jiankang', name: '建康', x: 700, y: 590, owner: 'jin', kind: 'capital', terrain: 'river', garrison: 15000, wall: 2.2, grain: 60 },
   { id: 'guangling', name: '广陵', x: 680, y: 540, owner: 'jin', kind: 'city', terrain: 'river', garrison: 9000, wall: 1.6, grain: 24 },
+  { id: 'huaiyin', name: '淮阴', x: 716, y: 486, owner: 'jin', kind: 'port', terrain: 'river', garrison: 2500, wall: 1.2, grain: 10 },
   { id: 'jingkou', name: '京口', x: 660, y: 610, owner: 'jin', kind: 'city', terrain: 'river', garrison: 5000, wall: 1.6, grain: 18 },
+  { id: 'liyang', name: '历阳', x: 752, y: 598, owner: 'jin', kind: 'port', terrain: 'river', garrison: 3000, wall: 1.2, grain: 12 },
+  { id: 'xiakou', name: '夏口', x: 472, y: 626, owner: 'jin', kind: 'port', terrain: 'river', garrison: 4000, wall: 1.4, grain: 16 },
+  { id: 'jingling', name: '竟陵', x: 352, y: 648, owner: 'jin', kind: 'city', terrain: 'river', garrison: 3000, wall: 1.2, grain: 12 },
   { id: 'pengcheng', name: '彭城', x: 560, y: 300, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 15000, wall: 1.6, grain: 24 },
   { id: 'xiangyang', name: '襄阳', x: 330, y: 500, owner: 'qin', kind: 'city', terrain: 'mountain', garrison: 12000, wall: 2.4, grain: 30 },
   { id: 'jiangling', name: '江陵', x: 380, y: 590, owner: 'jin', kind: 'city', terrain: 'river', garrison: 30000, wall: 2.0, grain: 40 },
   { id: 'yuncheng', name: '郧城', x: 440, y: 528, owner: 'qin', kind: 'city', terrain: 'plain', garrison: 10000, wall: 1.2, grain: 16 },
 ]
 
+// 道路补到 48 条。既有 20 条的天数一个不动：aiTick 里秦军前锋的到位日、玩家部队的到位日
+// 都按这些天数在跑，改了就会把已经定型的胜负节奏推翻。新增 28 条只在“新邑—新邑 / 新邑—旧邑”
+// 之间接线，且天数按里程逐条试算过，保证既有 18 城之间任何一对的里程都不比原来短——
+// 否则等于给玩家开了一条史书上没有的近路。
 const roads: OpsRoadDef[] = [
   { id: 'f1', from: 'changan', to: 'luoyang', days: 9, kind: 'road', name: '崤函道' },
   { id: 'f2', from: 'luoyang', to: 'xiangcheng', days: 6, kind: 'road' },
@@ -42,21 +56,66 @@ const roads: OpsRoadDef[] = [
   { id: 'f18', from: 'jiangling', to: 'yuncheng', days: 4, kind: 'road' },
   { id: 'f19', from: 'yuncheng', to: 'hefei', days: 6, kind: 'road' },
   { id: 'f20', from: 'luoyang', to: 'pengcheng', days: 8, kind: 'road' },
+
+  // 汝颍—淮北一线（秦军南下与粮运的干线）
+  { id: 'f21', from: 'luoyang', to: 'chenliu', days: 3, kind: 'road' },
+  { id: 'f22', from: 'chenliu', to: 'pengcheng', days: 6, kind: 'road' },
+  { id: 'f23', from: 'xiangcheng', to: 'xincai', days: 2, kind: 'road' },
+  { id: 'f24', from: 'xincai', to: 'xiacai', days: 3, kind: 'road' },
+  { id: 'f25', from: 'xiacai', to: 'xiashi', days: 2, kind: 'river', name: '淮上舟渡' },
+  { id: 'f26', from: 'xiacai', to: 'ruyin', days: 2, kind: 'road' },
+  { id: 'f27', from: 'ruyin', to: 'yingkou', days: 3, kind: 'river', name: '汝颍水网' },
+  { id: 'f28', from: 'yingkou', to: 'xiacai', days: 2, kind: 'river' },
+  { id: 'f29', from: 'xiangcheng', to: 'chenliu', days: 5, kind: 'road' },
+  { id: 'f30', from: 'xiangcheng', to: 'xiacai', days: 2, kind: 'road' },
+  { id: 'f31', from: 'xincai', to: 'xiashi', days: 2, kind: 'road', name: '淮北间道' },
+  { id: 'f32', from: 'xincai', to: 'bagongshan', days: 2, kind: 'mountain' },
+  { id: 'f33', from: 'chenliu', to: 'xincai', days: 5, kind: 'road' },
+  { id: 'f34', from: 'chenliu', to: 'xiacai', days: 5, kind: 'road' },
+  { id: 'f35', from: 'xiashi', to: 'chenliu', days: 7, kind: 'road', name: '淮北迂道' },
+
+  // 淮东—江东（北府兵与建康之间的水陆通道）
+  { id: 'f36', from: 'guangling', to: 'huaiyin', days: 2, kind: 'river' },
+  { id: 'f37', from: 'huaiyin', to: 'jingkou', days: 3, kind: 'river' },
+  { id: 'f38', from: 'huaiyin', to: 'liyang', days: 3, kind: 'river' },
+  { id: 'f39', from: 'liyang', to: 'jiankang', days: 1, kind: 'river', name: '横江渡' },
+  { id: 'f40', from: 'liyang', to: 'guangling', days: 3, kind: 'road' },
+  { id: 'f41', from: 'jingkou', to: 'liyang', days: 2, kind: 'river' },
+  { id: 'f42', from: 'huaiyin', to: 'luojian', days: 6, kind: 'river', name: '淮东迂道' },
+  { id: 'f43', from: 'huaiyin', to: 'jiankang', days: 4, kind: 'river' },
+
+  // 荆襄—汉东（桓冲一线，与淮南主战场互为牵制）
+  { id: 'f44', from: 'jiangling', to: 'xiakou', days: 3, kind: 'river', name: '汉水入江' },
+  { id: 'f45', from: 'xiakou', to: 'jingling', days: 4, kind: 'river' },
+  { id: 'f46', from: 'xiakou', to: 'yuncheng', days: 3, kind: 'road' },
+  { id: 'f47', from: 'jingling', to: 'jiangling', days: 2, kind: 'road' },
+  { id: 'f48', from: 'ruyin', to: 'xiangyang', days: 6, kind: 'road', name: '汉东泽道' },
 ]
 
+// 部队补到 15 支：新增的三支晋军都驻在后方的京口、建康、江陵，新增的两支秦军驻长安、襄阳，
+// 都远离首日战场。这样既补足了编制（刘牢之、谢琰、张蚝、凉州兵、蜀汉水师），
+// 又不会在开局第一天就把洛涧、寿阳的兵力对比改掉。
 const armies: OpsArmyDef[] = [
   { id: 'jin-bei', name: '北府兵', faction: 'jin', commander: '前锋都督', troops: 45000, type: 'infantry', morale: 80, fatigue: 10, training: 1.2, foodDays: 20, city: 'guangling', stealth: 0.4 },
   { id: 'jin-main', name: '晋军主力', faction: 'jin', commander: '征讨大都督', troops: 30000, type: 'mixed', morale: 75, fatigue: 8, training: 1.1, foodDays: 20, city: 'jiankang', stealth: 0.3 },
   { id: 'jin-shui', name: '水军', faction: 'jin', commander: '水军都督', troops: 5000, type: 'fleet', morale: 76, fatigue: 6, training: 1.05, foodDays: 18, city: 'guangling', stealth: 0.4 },
   { id: 'jin-west', name: '荆州军', faction: 'jin', commander: '荆州刺史', troops: 40000, type: 'infantry', morale: 72, fatigue: 8, training: 1.0, foodDays: 18, city: 'jiangling', stealth: 0.25 },
+  { id: 'jin-lao', name: '刘牢之部', faction: 'jin', commander: '广陵相', troops: 5000, type: 'cavalry', morale: 82, fatigue: 6, training: 1.28, foodDays: 18, city: 'jingkou', stealth: 0.45 },
+  { id: 'jin-yan', name: '谢琰部', faction: 'jin', commander: '辅国将军', troops: 6000, type: 'mixed', morale: 78, fatigue: 8, training: 1.15, foodDays: 18, city: 'jiankang', stealth: 0.35 },
+  { id: 'jin-hu', name: '胡彬水军', faction: 'jin', commander: '龙骧将军', troops: 5000, type: 'fleet', morale: 74, fatigue: 8, training: 1.05, foodDays: 16, city: 'huaiyin', stealth: 0.4 },
   { id: 'qin-front', name: '秦军前锋', faction: 'qin', commander: '前锋都督', troops: 250000, type: 'mixed', morale: 76, fatigue: 8, training: 1.0, foodDays: 24, city: 'yingkou', stealth: 0.1 },
   { id: 'qin-main', name: '秦军本营', faction: 'qin', commander: '大秦天王', troops: 420000, type: 'mixed', morale: 74, fatigue: 6, training: 0.95, foodDays: 26, city: 'xiangcheng', stealth: 0.1 },
   { id: 'qin-liang', name: '洛涧守军', faction: 'qin', commander: '梁成部', troops: 50000, type: 'infantry', morale: 70, fatigue: 6, training: 0.95, foodDays: 18, city: 'luojian', stealth: 0.15 },
   { id: 'qin-east', name: '东路秦军', faction: 'qin', commander: '幽冀兵', troops: 30000, type: 'infantry', morale: 68, fatigue: 8, training: 0.9, foodDays: 18, city: 'pengcheng', stealth: 0.1 },
   { id: 'qin-west', name: '西线秦军', faction: 'qin', commander: '西线都督', troops: 30000, type: 'mixed', morale: 70, fatigue: 8, training: 0.95, foodDays: 18, city: 'xiangyang', stealth: 0.1 },
   { id: 'qin-3', name: '慕容垂别部', faction: 'qin', commander: '别部都督', troops: 30000, type: 'infantry', morale: 72, fatigue: 6, training: 1.0, foodDays: 18, city: 'yuncheng', stealth: 0.1 },
+  { id: 'qin-zhang', name: '张蚝部', faction: 'qin', commander: '虎牙将军', troops: 20000, type: 'mixed', morale: 74, fatigue: 6, training: 1.05, foodDays: 20, city: 'yingkou', stealth: 0.15 },
+  { id: 'qin-liangzhou', name: '凉州兵', faction: 'qin', commander: '凉州刺史', troops: 12000, type: 'infantry', morale: 66, fatigue: 14, training: 0.9, foodDays: 16, city: 'changan', stealth: 0.05 },
 ]
 
+// 决策补到 11 个。d1—d8 的 id、选项 id 一律不动（回归测试按 opt1 走史实线，
+// 改 id 会让整条史实路线失效）；新增 d9—d11 覆盖档案里被砍掉的三处：硖石救不救、
+// 涉渡时机、庙堂善后。
 const decisions: DecisionNodeDef[] = [
   {
     id: 'd1', title: '先手：要不要主动出击', prompt: '秦军前锋已抵颍口，后续大军仍在路上。是主动出击，还是坚守淮河一线？',
@@ -135,6 +194,36 @@ const decisions: DecisionNodeDef[] = [
       { id: 'opt2', label: '固守江淮', desc: '保存实力。', hint: '稳妥。' },
       { id: 'opt3', label: '经营荆州', desc: '西线优先。', hint: '战略选择。' },
       { id: 'opt4', label: '遣使议和', desc: '以战胜之威换取和平。', hint: '外交。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd9', title: '涉渡：秦军退到一半，还是等它退完', prompt: '秦军已麾兵使却，什伍未乱而已动。何时涉渡淝水？',
+    options: [
+      { id: 'opt1', label: '趁其初动即渡', desc: '秦军退势未定，八千人足可冲其阵。', hint: '历史选择。', recommended: true },
+      { id: 'opt2', label: '待其退毕再渡', desc: '自己阵脚可整，但给了秦军回身的工夫。', hint: '稳妥。' },
+      { id: 'opt3', label: '分兵绕上游浅滩', desc: '避正面，但兵力分散、涉渡更慢。', hint: '复杂。' },
+      { id: 'opt4', label: '不渡，据东岸持重', desc: '不赌后撤，但粮少兵寡，对峙不利。', hint: '保守。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd10', title: '硖石：胡彬被围，救还是不救', prompt: '胡彬水军粮尽，信使又为秦军所截。硖石孤悬，主力当如何？',
+    options: [
+      { id: 'opt1', label: '不救，全力趋洛涧', desc: '舍一隅而争淮上通道。', hint: '历史选择。', recommended: true },
+      { id: 'opt2', label: '分水军救硖石', desc: '救出孤军，但主力因此分力。', hint: '稳。' },
+      { id: 'opt3', label: '佯攻下蔡以解围', desc: '攻其必救，代价是暴露意图。', hint: '巧。' },
+      { id: 'opt4', label: '弃硖石，水军东归', desc: '保全水军，弃一城以实主力。', hint: '弃子。' },
+    ],
+    defaultOption: 'opt1',
+  },
+  {
+    id: 'd11', title: '善后：庙堂猜忌与北伐止步', prompt: '捷书既上，朝中已有“征役既久，宜置戍而还”之议。谢氏当何以自处？',
+    options: [
+      { id: 'opt1', label: '让功于朝，请留中军', desc: '压低猜忌，但北伐之力随之减。', hint: '历史结局。', recommended: true },
+      { id: 'opt2', label: '固请北伐，乘胜取淮北', desc: '扩大战果，猜忌也随之而起。', hint: '进取。' },
+      { id: 'opt3', label: '交出兵权，求镇京口', desc: '避祸自保，但北府兵从此为朝廷所制。', hint: '退。' },
+      { id: 'opt4', label: '密结桓氏以自固', desc: '借荆州之势抗衡台省，风险极大。', hint: '险。' },
     ],
     defaultOption: 'opt1',
   },

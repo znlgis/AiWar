@@ -1,4 +1,5 @@
 import type { ArmyState, Campaign, CityState, GameState, Troops, Weather } from './types.js'
+import { emptyLedgers } from './ledger.js'
 
 export function total(t: Troops): number {
   return t.chariot + t.infantry + t.cavalry + t.crossbow
@@ -86,6 +87,7 @@ export function createInitialState(campaign: Campaign, difficulty: GameState['di
     endingId: null,
     score: null,
     log: [],
+    ...emptyLedgers(),
     reportSeq: 0,
     battleSeq: 0,
     narrativeSalt: 0,

@@ -1,4 +1,5 @@
 // 推演内核的公共类型契约。content 与 UI 只依赖这一层。
+import type { BattleRecord, CityRecord, ChoiceRecord, OrderRecord } from './ledger.js'
 
 // 战役自定义阵营：围魏救赵用 qi/wei/...，新战役可用 red/kmt/... 等任意字符串
 export type FactionId = string
@@ -138,6 +139,19 @@ export interface Trace {
   confidence: Confidence
 }
 
+/**
+ * 地图上的地形要素（山系、河流、湖泊、海岸、关隘）。
+ * 纯渲染数据，不参与推演：加它不会改变任何一局的胜负，只是让地图不再只有点和线。
+ */
+export interface MapTerrain {
+  kind: 'ridge' | 'river' | 'lake' | 'coast' | 'pass'
+  name?: string
+  /** 折线点列（画布坐标）。lake/coast 为闭合面，其余为线 */
+  points: [number, number][]
+  /** 线宽档位，缺省按 kind 决定 */
+  weight?: 1 | 2 | 3
+}
+
 export interface Battle {
   id: string
   place: string
@@ -148,6 +162,11 @@ export interface Battle {
   ambush: boolean
   attackerInitial: number
   defenderInitial: number
+  /** 逐日累计折损，供战报结算用；缺失时按 0 处理 */
+  attackerLost?: number
+  defenderLost?: number
+  /** 开战日序；老存档无此字段时由记录处兜底 */
+  firstTick?: number
   log: string[]
 }
 
@@ -236,6 +255,8 @@ export interface Balance {
 
 export interface Campaign {
   meta: CampaignMeta
+  /** 战场地形：山系、河流、湖泊、关隘。纯渲染用，不参与推演 */
+  terrain?: MapTerrain[]
   playerFaction: FactionId
   maxTicks: number
   factions: Record<FactionId, { name: string; color: string; short: string }>
@@ -323,6 +344,11 @@ export interface GameState {
   endingId: string | null
   score: Score | null
   log: string[]
+  /** 以下四个账本只增不删，供结算页生成战报；旧存档缺省时按空数组处理 */
+  battleLog: BattleRecord[]
+  cityLog: CityRecord[]
+  choiceLog: ChoiceRecord[]
+  orderLog: OrderRecord[]
   reportSeq: number
   battleSeq: number
   narrativeSalt: number

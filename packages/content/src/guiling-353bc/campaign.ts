@@ -1,5 +1,5 @@
 import type {
-  ArmyDef, Balance, Campaign, CampaignMeta, CityDef, DecisionNodeDef, Difficulty, DifficultyId, RoadDef, ScoreWeights,
+  ArmyDef, Balance, Campaign, CampaignMeta, CityDef, DecisionNodeDef, Difficulty, DifficultyId, MapTerrain, RoadDef, ScoreWeights,
 } from '@aiwar/sim'
 
 const meta: CampaignMeta = {
@@ -38,6 +38,26 @@ const cities: CityDef[] = [
   { id: 'chen', name: '陈', x: 450, y: 650, kind: 'capital', owner: 'chu', wall: 2.6, garrison: 25000, grain: 100 },
   { id: 'anyi', name: '安邑', x: 220, y: 380, kind: 'city', owner: 'wei', wall: 2.4, garrison: 5000, grain: 50 },
   { id: 'shaoliang', name: '少梁', x: 100, y: 330, kind: 'fort', owner: 'wei', wall: 2.0, garrison: 3000, grain: 30 },
+]
+
+/**
+ * 战场地形：山系、河流、湖泊、关隘。纯渲染数据，不参与推演。
+ * 坐标与城邑同一套画布坐标（1000×700），取自《史记》《战国策》里提到的山川与
+ * 桂陵、濮水、济水、鸿沟这些真实存在的地理骨架；只求方位对得上，不做测绘精度。
+ */
+const terrain: MapTerrain[] = [
+  { kind: 'ridge', name: '太行', points: [[150, 120], [210, 160], [260, 120], [320, 150], [370, 110]], weight: 1 },
+  { kind: 'ridge', name: '太行东麓', points: [[260, 200], [300, 250], [330, 300], [350, 360]], weight: 1 },
+  { kind: 'ridge', name: '泰山', points: [[730, 190], [780, 225], [830, 205], [870, 250]], weight: 2 },
+  { kind: 'ridge', name: '睢涣之间', points: [[600, 470], [660, 500], [720, 520]], weight: 1 },
+  // 河流按真实走向布置：济水自西向东入齐，濮水在其南，鸿沟南下通淮
+  { kind: 'river', name: '济水', points: [[540, 300], [600, 315], [660, 322], [730, 330], [800, 340]], weight: 3 },
+  { kind: 'river', name: '濮水', points: [[480, 350], [540, 360], [600, 380], [660, 400], [720, 420]], weight: 2 },
+  { kind: 'river', name: '鸿沟', points: [[520, 470], [510, 540], [500, 600], [480, 650]], weight: 3 },
+  { kind: 'river', name: '漳水', points: [[280, 150], [330, 175], [380, 200], [430, 230]], weight: 2 },
+  { kind: 'river', name: '睢水', points: [[600, 520], [660, 545], [720, 570]], weight: 2 },
+  { kind: 'pass', name: '桂陵道', points: [[540, 395], [520, 480]], weight: 1 },
+  { kind: 'pass', name: '太行东麓道', points: [[400, 210], [440, 260], [470, 300]], weight: 1 },
 ]
 
 const roads: RoadDef[] = [
@@ -232,6 +252,7 @@ export const guilingCampaign: Campaign = {
   },
   cities,
   roads,
+  terrain,
   armies,
   decisions,
   difficulty: difficulties,

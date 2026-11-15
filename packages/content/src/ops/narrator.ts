@@ -93,8 +93,10 @@ function fill(t: string, p: Record<string, string>): string {
 
 export function makeOpsNarrator(extra: Corpus = {}): OpsNarrative {
   const corpus: Corpus = {}
+  // 战役专属语料排在通用语料之前：抽取按 salt % length 取，若通用语料在前，
+  // 只要它的句子池没被抽完，专属语料永远轮不到——白写。
   for (const key of new Set([...Object.keys(BASE), ...Object.keys(extra)])) {
-    corpus[key] = [...(BASE[key] ?? []), ...(extra[key] ?? [])]
+    corpus[key] = [...(extra[key] ?? []), ...(BASE[key] ?? [])]
   }
   return {
     line(kind: string, params: Record<string, string>, salt: number): string {
@@ -106,6 +108,7 @@ export function makeOpsNarrator(extra: Corpus = {}): OpsNarrative {
 }
 
 // 近代战役的追加语料：同一批 key 追加现代写法，古代战役不会拿到这些词。
+// 用法：makeOpsNarrator({ ...MODERN_CORPUS, ...战役专属语料 })
 export const MODERN_CORPUS: Corpus = {
   'battle.start': [
     '{place}方向接战，枪炮声可闻。',

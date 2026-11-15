@@ -1,5 +1,6 @@
 import type { Campaign, GameState } from './types.js'
 import { createInitialState } from './state.js'
+import { normalizeLedgers } from './ledger.js'
 
 export interface SaveV1 {
   v: 1
@@ -30,5 +31,7 @@ export function restoreSave(raw: unknown, campaign: Campaign): GameState | null 
   if (!state.cities || !state.armies) return null
   // 兼容缺省字段，避免旧存档崩溃
   const fresh = createInitialState(campaign, save.difficulty ?? 'normal', save.seed)
-  return { ...fresh, ...state }
+  const merged = { ...fresh, ...state }
+  // v2 及更早的存档没有四个账本：补空数组，结算页据此显示「本局无记录」而不是崩溃
+  return { ...merged, ...normalizeLedgers(merged) }
 }

@@ -1,5 +1,7 @@
 import type { DifficultyId, FactionId, GameState, Score, Report, Campaign as LegacyCampaign } from '@aiwar/sim'
-import type { OpsCampaign, OpsHud, OpsRules, OpsState } from '@aiwar/sim'
+import type { Debrief, OpsCampaign, OpsHud, OpsRules, OpsState } from '@aiwar/sim'
+import { roundedPolygonPath, voronoiCells } from './mapGeometry.js'
+import { closedAreaPath, pointAlong, ridgeHatch, smoothLinePath } from './terrain.js'
 
 export type ViewName = 'title' | 'briefing' | 'battle' | 'result' | 'about'
 
@@ -14,7 +16,27 @@ export interface UiCity {
 }
 export interface UiTrace { id: string; x: number; y: number; text: string; age: number }
 export interface UiReport extends Report { sourceName: string; confidenceText: string }
-export interface UiControlArea { faction: FactionId; color: string; points: [number, number][] }
+export interface UiTerrain {
+  key: string
+  kind: 'ridge' | 'river' | 'lake' | 'coast' | 'pass'
+  name?: string
+  /** 线的 path；面要素也用 path（闭合） */
+  d: string
+  /** 山系的笔触 path（ridge 专用） */
+  hatch?: string
+  /** 河流/关隘的名称锚点 */
+  labelAt?: { x: number; y: number }
+  weight: 1 | 2 | 3
+}
+
+export interface UiControlArea {
+  faction: FactionId
+  color: string
+  /** 兼容旧渲染：凸包点位（保留给回退路径） */
+  points: [number, number][]
+  /** Voronoi 辖域：每块一个近似矩形的凸多边形，同势力多块 */
+  cells: { path: string; key: string }[]
+}
 export interface UiRoad {
   id: string; from: string; to: string; kind: string; days: number
   x1: number; y1: number; x2: number; y2: number; name?: string
@@ -24,12 +46,15 @@ export interface UiState {
   tick: number; date: string; weather: string
   tokens: number; paused: boolean; speed: number
   armies: UiArmy[]; cities: UiCity[]; traces: UiTrace[]; areas: UiControlArea[]; roads: UiRoad[]
+  terrain: UiTerrain[]
   reports: UiReport[]
   pendingNode: string | null
   nodeTitle: string; nodePrompt: string; options: import('@aiwar/sim').DecisionOptionDef[]
   decisionSeconds: number
   over: boolean
   score: Score | null
+  /** 结算页的战报与战役分析；对局进行中为 null */
+  debrief: Debrief | null
   pressureText: string
   objectiveText: string
   /** 以下字段供界面按战役取色与称呼，避免在视图里写死齐/魏 */
@@ -127,10 +152,44 @@ function expand(pts: [number, number][]): [number, number][] {
   return pts.map(([x, y]) => [cx + (x - cx) * 1.16, cy + (y - cy) * 1.16] as [number, number])
 }
 
-function makeAreas(cities: UiCity[], colorOf: (f: FactionId) => string): UiControlArea[] {
+/**
+ * 势力范围：按「最近城邑」做加权 Voronoi 划分，而不是把占领城市的点连成凸包。
+ * 凸包会把凹进去的敌占区吞进己方，五个势力叠成几块大三角——这是地图观感
+ * 最失真的地方。Voronoi 的格子贴合节点分布，边界也不再互相穿透。
+ */
+function makeAreas(cities: UiCity[], colorOf: (f: FactionId) => string, mapW = 1000, mapH = 700): UiControlArea[] {
+  // 只有已探明的城邑才画辖域：未探明的城邑若也参与划分，会在地图上凭空多出
+  // 一块无主色块，等于把迷雾里的城邑泄露给玩家
+  const visible = cities.filter(c => c.known)
+  const weightOf = (kind: string): number => {
+    switch (kind) {
+      case 'capital': return 1.55
+      case 'city': return 1.15
+      case 'fort': return 0.85
+      case 'port': return 0.9
+      case 'road': return 0.55
+      default: return 1
+    }
+  }
+  const sites = visible.map(c => ({ id: c.id, x: c.x, y: c.y, weight: weightOf(c.kind), faction: c.owner as string }))
+  const cells = voronoiCells(sites, { x: -20, y: -20, w: mapW + 40, h: mapH + 40 })
+  const byFaction = new Map<string, { path: string; key: string }[]>()
+  for (const cell of cells) {
+    const list = byFaction.get(cell.site.faction) ?? []
+    list.push({ key: cell.site.id, path: roundedPolygonPath(cell.polygon) })
+    byFaction.set(cell.site.faction, list)
+  }
+  // 旧渲染兜底：同势力城邑的凸包（仅在 Voronoi 没有产出时使用）
+  const legacy = makeLegacyAreas(visible, colorOf)
+  return legacy.map(area => ({
+    ...area,
+    cells: byFaction.get(area.faction as string) ?? [],
+  }))
+}
+
+function makeLegacyAreas(cities: UiCity[], colorOf: (f: FactionId) => string): UiControlArea[] {
   const owned: Record<string, [number, number][]> = {}
   for (const city of cities) {
-    if (!city.known) continue
     owned[city.owner] = owned[city.owner] ?? []
     owned[city.owner]!.push([city.x, city.y])
   }
@@ -140,7 +199,32 @@ function makeAreas(cities: UiCity[], colorOf: (f: FactionId) => string): UiContr
       faction: faction as FactionId,
       color: colorOf(faction as FactionId),
       points: expand(hull(pts)),
+      cells: [],
     }))
+}
+
+/** 地形要素 → 可直接渲染的 path（山系额外生成笔触） */
+function makeTerrain(defs: import('@aiwar/sim').MapTerrain[] | undefined): UiTerrain[] {
+  if (!defs || defs.length === 0) return []
+  return defs.map((def, index) => {
+    const weight = (def.weight ?? (def.kind === 'river' ? 3 : def.kind === 'ridge' ? 1 : 2)) as 1 | 2 | 3
+    const isArea = def.kind === 'lake' || def.kind === 'coast'
+    const d = isArea ? closedAreaPath(def.points) : smoothLinePath(def.points)
+    const out: UiTerrain = { key: def.kind + '-' + index, kind: def.kind, name: def.name, d, weight }
+    if (def.kind === 'ridge') {
+      // 笔触要够大才看得出「山」，太小就成了毛边；主山脉再放大一档
+      out.hatch = ridgeHatch(def.points, {
+        step: weight === 1 ? 34 : 24,
+        height: weight === 1 ? 15 : 19,
+        width: weight === 1 ? 12 : 15,
+      })
+    }
+    if (def.name && !isArea && def.points.length >= 2) {
+      const [x, y] = pointAlong(def.points, 0.5)
+      out.labelAt = { x, y }
+    }
+    return out
+  })
 }
 
 function makeReports(state: { reports: Report[]; tick: number }, names: Record<string, string> = SOURCE_NAMES_ANCIENT): UiReport[] {
@@ -152,7 +236,10 @@ function makeReports(state: { reports: Report[]; tick: number }, names: Record<s
 }
 
 // ---- 围魏救赵（旧引擎）投影 ----
-export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiState {
+export function projectLegacy(
+  state: GameState, campaign: LegacyCampaign,
+  score: Score | null = null, debrief: Debrief | null = null,
+): UiState {
   const colorOf = (f: FactionId) => campaign.factions[f]?.color ?? '#666'
   const cityPos = (id?: string) => {
     const city = campaign.cities.find(c => c.id === id)
@@ -214,7 +301,8 @@ export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiSta
     tokens: state.tokens,
     paused: true,
     speed: 1,
-    armies, cities, traces, areas: makeAreas(cities, colorOf), roads,
+    armies, cities, traces, areas: makeAreas(cities, colorOf, 1000, 700), roads,
+    terrain: makeTerrain(campaign.terrain),
     reports: makeReports(state, sourceNamesOf(undefined)),
     pendingNode: nodeId,
     nodeTitle: node?.title ?? '',
@@ -222,7 +310,10 @@ export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiSta
     options: node?.options ?? [],
     decisionSeconds: 0,
     over: state.over,
-    score: state.score,
+    // legacy 引擎从不把结算写回 state.score（历史上一直是空的），
+    // 所以这里由调用方传入 finalize() 的结果，否则结算页拿不到分数
+    score,
+    debrief,
     pressureText: state.politics.weiPressure >= 85 ? '魏廷震动' : state.politics.weiPressure >= 55 ? '大梁告急' : state.politics.weiPressure >= 25 ? '魏廷戒严' : '魏廷未动',
     objectiveText: state.politics.pangjuanReturning ? '魏军回师' : state.cities[campaign.roles.zhaoCapital]?.owner === 'wei' ? '邯郸已陷' : '邯郸被围',
     playerFaction: campaign.playerFaction,
@@ -240,6 +331,7 @@ export function projectLegacy(state: GameState, campaign: LegacyCampaign): UiSta
 // ---- 通用战役投影 ----
 export function projectOps(
   state: OpsState, campaign: OpsCampaign, hud?: OpsHud, score?: Score | null, sides?: UiSides,
+  debrief: Debrief | null = null,
 ): UiState {
   const colorOf = (f: FactionId) => campaign.factions[f]?.color ?? '#666'
   const cityPos = (id?: string) => {
@@ -316,7 +408,10 @@ export function projectOps(
     tokens: state.tokens,
     paused: true,
     speed: 1,
-    armies, cities, traces, areas: makeAreas(cities, colorOf), roads,
+    armies, cities, traces,
+    areas: makeAreas(cities, colorOf, campaign.mapWidth, campaign.mapHeight),
+    roads,
+    terrain: makeTerrain(campaign.terrain),
     reports: makeReports(state, sourceNamesOf(campaign.meta.era)),
     pendingNode: nodeId,
     nodeTitle: node?.title ?? '',
@@ -325,6 +420,7 @@ export function projectOps(
     decisionSeconds: 0,
     over: state.over,
     score: score ?? null,
+    debrief,
     pressureText: hud?.pressureText ?? '',
     objectiveText: hud?.objectiveText ?? '',
     playerFaction: state.playerFaction,
