@@ -1,9 +1,14 @@
 node_modules/
 dist/
-release/
+# 发布物料：zip 每次构建字节不同（固定不跟踪），封面与图标是可复现的物料，需要进仓库
+release/*
+!release/poster.png
+!release/icon.png
+
 .shots/
 *.local
 .DS_Store
+.toycheck/
 __pycache__/
 *.pyc
 *.tsbuildinfo

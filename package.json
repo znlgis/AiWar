@@ -11,8 +11,9 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "toy:check": "node scripts/check-toy.mjs",
+    "toy:doctor": "python scripts/toy_doctor.py apps/site/dist --poster release/poster.png --slug aiwar-guiling",
     "toy:zip": "python scripts/zip-dist.py",
     "preview:toy": "node scripts/preview-toy-subpath.mjs",
-    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm toy:zip && pnpm toy:check"
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm toy:zip && pnpm toy:check && pnpm toy:doctor"
   }
 }

@@ -1,0 +1,23 @@
+chore: Toy 合规收口——接入官方预检、修正封面文案、补断网冒烟
+
+合规检查结论
+- 官方预检 scripts/toy_doctor.py（原样取自 B 站 Toy 官方 skill）对 dist 与 zip 均返回
+  ok: true / findings: []；入口 index.html 0.7 KB（上限 1 MB），整包 0.45 MB（上限 50 MB）
+- 产物独立扫描：敏感词 0 命中、eval/new Function/document.write/XHR/WebSocket/atob/webdriver 0 命中、
+  UGC 原语 0 命中；站外引用只有 SVG 命名空间常量与 Vue 报错文档链接，均不发起请求
+
+发布物料
+- 海报此前写「单局约 20–30 分钟」且只宣传第一战，与 README / 设计文档 / 标题页的 5–8 分钟冲突；
+  改为「五战」并列出五场战役，时长与全文口径一致
+- make_assets.py：字体从写死 C:/Windows 路径改为按平台候选查找；输出路径改为相对脚本解析
+  并自动建 release/；补 scripts/requirements.txt
+- .gitignore：release/ 整体忽略导致封面与图标进不了仓库；改为只忽略 zip，保留两张 PNG
+
+预检接入
+- 新增 pnpm toy:doctor，并纳入 pnpm check；docs/03 恢复官方脚本说明（此前因仓库内不存在而删除引用）
+- 检查清单按「自动化 / 人工确认」重写：能机检的都有断言，判不了的单独列出
+
+冒烟
+- 新增 scripts/smoke-offline.mjs：移动端视口 + 网络隔离，断言零站外请求、决策面板可完成、
+  存档只在关键节点落盘（实测第 4 日首次写入，此后每 4 日一次）、无控制台错误
+- smoke-offline 的决策等待改为轮询（原先固定 sleep 会误报「未确认」）

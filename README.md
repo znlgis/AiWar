@@ -24,8 +24,9 @@ pnpm dev          # 本地开发
 pnpm test         # 内核、平衡与回归测试
 pnpm build        # 构建 apps/site/dist
 pnpm toy:zip      # 打包 release/aiwar-guiling.zip（包根 index.html）
-pnpm toy:check    # Toy 发布自检（check-toy.mjs）
-pnpm check        # typecheck + test + build + zip + check
+pnpm toy:check    # Toy 发布自检（check-toy.mjs，本项目定制）
+pnpm toy:doctor   # 官方预检（scripts/toy_doctor.py，含封面尺寸与文档体积）
+pnpm check        # typecheck + test + build + zip + check-toy + toy:doctor
 ```
 
 回归测试锁定三条底线：**每场战役的史实路线必须能打到 A/B 以上**、**史实难度得分不得低于地狱难度**、**同一 seed 与同一串决策必须复现同一结局**。改平衡参数后先跑 `pnpm test`，不要直接改断言。
